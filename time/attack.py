@@ -33,9 +33,10 @@ def attack() :
 def encrypt( base, exponent, modulus ) :
   a = 1
   for i in exponent :
-    a *= a % modulus
+    a *= a
     if i == '1' :
-      a *= base % modulus
+      a *= base
+    a = a % modulus
   return a
 
 # Section 2.1 binary exponentiation | g ** r
