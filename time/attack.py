@@ -23,14 +23,23 @@ def attack() :
   print "r = %d" % ( r )
 
 if ( __name__ == "__main__" ) :
+
+  publicKey = []
+  # Get the public key parameters
+  with open( sys.argv[ 2 ] ) as f:
+    for line in f:
+        publicKey.append( line[:-1] )
+
+
+
   # Produce a sub-process representing the attack target.
   target = subprocess.Popen( args   = sys.argv[ 1 ],
                              stdout = subprocess.PIPE, 
                              stdin  = subprocess.PIPE )
 
   # Construct handles to attack target standard input and output.
-  target_out = target.stdout
-  target_in  = target.stdin
+  # target_out = target.stdout
+  # target_in  = target.stdin
 
   # Execute a function representing the attacker.
-  attack()
+  # attack()
