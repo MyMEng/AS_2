@@ -100,7 +100,7 @@ if ( __name__ == "__main__" ) :
   for i in attacksE :
     attacks.append( encrypt( i, exp, publicKey[0] ) )
 
-  print attack
+  print attacks
   # implement algorithm from paper
 
 
