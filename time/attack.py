@@ -30,6 +30,14 @@ def attack() :
   print "t = %d" % ( t )
   print "r = %d" % ( r )
 
+def encrypt( base, exponent, modulus ) :
+  a = 1
+  for i in exponent :
+    a *= a % modulus
+    if i == '1' :
+      a *= base % modulus
+  return a
+
 # Section 2.1 binary exponentiation | g ** r
 #   *j* denote bit that we are attacking
 def binExp( g, r, N, j ) :
@@ -73,14 +81,27 @@ if ( __name__ == "__main__" ) :
   for i, k in enumerate( publicKey ) :
     publicKey[i] = long( k, 16 )
 
-  print publicKey
+  # put exponent to binary string
+  exp = "{0:b}".format( publicKey[1] )
 
   # generate 1024-bit strings for attacks --- #64
-  # i = 0
-  # attacks = []
-  # while( i < AttacksNo ) :
-    # rr = random.getrandbits( 1024 )
-    # if rr < 
+  i = 0
+  attacksE = []
+  while( i < AttacksNo ) :
+    rr = random.getrandbits( 1024 )
+    # check whether are less than N
+    if rr < publicKey[0] :
+      attacksE.append( rr )
+      i += 1
+
+  # encrypt them with e and N
+  attacks =[]
+  for i in attacksE :
+    attacks.append( encrypt( i, exp, publicKey[0] ) )
+
+  print attack
+  # implement algorithm from paper
+
 
   # Produce a sub-process representing the attack target.
   target = subprocess.Popen( args   = sys.argv[ 1 ],
@@ -93,14 +114,6 @@ if ( __name__ == "__main__" ) :
 
   # Execute a function representing the attacker.
   # attack()
-
-
-
-
-  # check whether are less than N
-  # encrypt them with e and N
-
-  # 
 
   # start recovering by testing key {1,0,-,-,-,-,-,-}
   #                                 {1,1,-,-,-,-,-,-}
