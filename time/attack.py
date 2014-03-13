@@ -1,4 +1,4 @@
-import sys, subprocess
+import sys, subprocess, random
 
 # number of attacks
 AttacksNo = 64
