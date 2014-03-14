@@ -1,7 +1,24 @@
 import sys, subprocess, random
 
+############# code from Internet
+def egcd(a, b):
+    if a == 0:
+        return (b, 0, 1)
+    else:
+        g, y, x = egcd(b % a, a)
+        return (g, x - (b // a) * y, y)
+
+def modinv(a, m):
+    g, x, y = egcd(a, m)
+    if g != 1:
+        raise Exception('modular inverse does not exist')
+    else:
+        return x % m
+############# code from Internet
+
+
 # number of attacks
-AttacksNo = 64
+AttacksNo = 1#64
 wordSize = 64
 base = 2 ** wordSize
 # input is 1024 bits that is 16 limbs in base 2 ** 64
@@ -43,12 +60,12 @@ def encrypt( base, exponent, modulus ) :
 
 
 
-def attack( guess, pk, exp, time ) :
+def attack( guess, N, exp, time ) :
   # print "r = %d" % ( r )
   reductionTable = []
   # for now on attack only first bit
   for i in guess :
-    reductionTable.append( binExp( i, exp, pk, 1 ) )
+    reductionTable.append( binExp( i, exp, N, 1 ) )
 
   print reductionTable
 
@@ -59,18 +76,25 @@ def attack( guess, pk, exp, time ) :
 def rest( x, cb ) :
   # carry
   if cb :
-    C = x - (base-1)
-    if C > 0 :
-      return (C, base-1)
-    else :
-      return (0, x)
-
+    i = 0
+    C = x
+    # while C >= base:
+      # C -= base
+      # i += 1
+    C = C%base
+    # print (x-C)%base
+    i = (x-C)/base
+    return(i, C)
+    # if C > 0 :
+      # return (C, base-1)
+    # else :
+      # return (0, x)
   # borrow
-  else :
-    if x > 0 :
-      return (0, x)
-    else :
-      return (abs(x), 0)
+  # else :
+    # if x > 0 :
+      # return (0, x)
+    # else :
+      # return (abs(x), 0)
 
 # create limb with 0's fo given length
 def nullLimb( size ) :
@@ -103,8 +127,9 @@ def limb( a ) :
 
 # Section 2.1 binary exponentiation | g ** r
 #   *j* denote bit that we are attacking
-def binExp( g, r, N, j ) :
-  result = 1
+def binExp( gr, r, N, j ) :
+  result = (1* base**inputSize)%N
+  g = (gr* base**inputSize)%N
 
   for n, i in enumerate( r ) : # --- start from most significant bit --- r[::-1]
     result *= result % N
@@ -128,15 +153,13 @@ def binExp( g, r, N, j ) :
 # mock the CIOS Montgomery Multiplication with w= 64 | b =  2 ** 64
 #   return whether reduction was done or not
 def CIOSMM( x, y, N ) :
+  # q_1 = modinv(base**inputSize, N)
+  # print (x* q_1)%N#(x* base**inputSize)%N
+  # print N
   # *s* is the number of words in *x* and *y*
   # r = base ** inputSize
-
-  print x
-  print y
-  print N
-
-  a = limb( (x* base**inputSize)%N )[::-1]
-  b = limb( (y* base**inputSize)%N )[::-1]
+  a = limb( x )[::-1]
+  b = limb( y )[::-1]
   n = limb(N)[::-1]
   t = nullLimb(inputSize+2)
   np0 = limb(nprime(N))[-1]
@@ -168,16 +191,20 @@ def CIOSMM( x, y, N ) :
   # t[wordSize] = D
   # if B == 0 :
 
+  # print t
+
   out = 0
   for i in range(inputSize) :
     out += t[i]* base**i
 
-  print (out* base**inputSize)%N
+  # print (out* q_1)%N#(out* base**inputSize)%N
+  # print out
+  # print N
 
   if out > N :
-    return True
+    return out-N#True
   else :
-    return False
+    return out#False
 
 
 
@@ -234,5 +261,6 @@ if ( __name__ == "__main__" ) :
   # interact
   time = interact(attacks)
   # attack
-  secretKey = attack( attacks, publicKey[0], exp, time )
-  print "%X" % ( secretKey )
+  # print attacks
+  secretKey = attack( attacks, publicKey[0], "0111101111001111100001110", time )
+  # print "%X" % ( secretKey )
