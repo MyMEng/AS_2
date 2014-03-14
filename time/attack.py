@@ -2,6 +2,10 @@ import sys, subprocess, random
 
 # number of attacks
 AttacksNo = 64
+wordSize = 64
+base = 2 ** wordSize
+# input is 1024 bits that is 16 limbs in base 2 ** 64
+inputSize = 16
 
 ####
 # Define parameters to distinguish attacks --- tuning-in
@@ -9,26 +13,21 @@ AttacksNo = 64
 ####
 
 def interact( G ) :
+
+  # start recovering by testing key {1,0,-,-,-,-,-,-}
+  #                                 {1,1,-,-,-,-,-,-}
+  #   and so on for each cypher-text and remember whether reduction occur or not
+  # and measuring time for decryption of each cypher-text i
+
+  t = []
   # Send      G      to   attack target.
-  target_in.write( "%s\n" % ( G ) ) ; target_in.flush()
-
-  # Receive ( t, r ) from attack target.
-  t = int( target_out.readline().strip() )
-  r = int( target_out.readline().strip() )
-
-  return ( t, r )
-
-def attack() :
-  # Select a hard-coded guess ...
-  G = "guess"
-
-  # ... then interact with the attack target.
-  ( t, r ) = interact( G )
-
-  # Print all of the inputs and outputs.
-  print "G = %s" % ( G )
-  print "t = %d" % ( t )
-  print "r = %d" % ( r )
+  for i in G :
+    target_in.write( "%X\n" % ( i ) ) ; target_in.flush()
+    # Receive time from attack target.
+    t.append( int( target_out.readline().strip() ) )
+    target_out.readline().strip()
+  
+  return t
 
 def encrypt( base, exponent, modulus ) :
   a = 1
@@ -39,40 +38,129 @@ def encrypt( base, exponent, modulus ) :
     a = a % modulus
   return a
 
+
+
+
+
+def attack( guess, pk, exp, time ) :
+  # print "r = %d" % ( r )
+  reductionTable = []
+  # for now on attack only first bit
+  for i in guess :
+    reductionTable.append( binExp( i, exp, pk, 1 ) )
+
+  print reductionTable
+
+  return "NO Key!"
+
+
 # Section 2.1 binary exponentiation | g ** r
 #   *j* denote bit that we are attacking
-def binExp( result, g, r, N, j ) :
-  # result = 1
+def binExp( g, r, N, j ) :
+  result = 1
 
   for n, i in enumerate( r ) : # --- start from most significant bit --- r[::-1]
-    result *= result # CIOSMM( result, result, N )
-
+    result *= result % N
     if i == '1' :
-      result *= g # CIOSMM( result, g, N )
-
+      result *= g % N
     # attack square
     if j == n :
-      result *= result # CIOSMM( result, result, N )
       # return whether reduction was done or not
       # last bit must be guessed
 
-  return True # False
+              # # compute mot representation of base
+              # base = 1
+              # # compute mot representation of 1
+              # one = 1
+
+      # check reduction
+      return CIOSMM( result, result, N )
+  return -1
+
+# perform limb operation with rest
+def rest( x, cb ) :
+  # carry
+  if cb :
+    C = x - (base-1)
+    if C > 0 :
+      return (C, base-1)
+    else :
+      return (0, x)
+
+  # borrow
+  else :
+    if x > 0 :
+      return (0, x)
+    else :
+      return (abs(x), 0)
+
+# create limb with 0's fo given length
+def nullLimb( size ) :
+  t = []
+  for i in range( size ) :
+    t.append(0)
+  return t
+
+# create limb representation of given number
+# index 0 is least significant
+def limb( a ) :
+  b = "{0:b}".format(a)
+  t = []
+  for i in range(inputSize) :
+    t.append(int(b[i*wordSize : (i+1)*wordSize], 2))
+  return t
 
 # mock the CIOS Montgomery Multiplication with w= 64 | b =  2 ** 64
 #   return whether reduction was done or not
 def CIOSMM( x, y, N ) :
-  w = 64
-  b = 2 ** 64
   # *s* is the number of words in *x* and *y*
+  a = limb(x)
+  b = limb(y)
+  n = limb(N)
+  t = nullLimb(inputSize+1)
+  np0 = 0
 
-def singleAttack() :
-  # compute mot representation of base
-  base = 1
-  # compute mot representation of 1
-  one = 1
+  for i in range( inputSize ) :
+    C = 0
+    for j in range( inputSize ) :
+      (C, S) = rest( t[j] + a[j]*b[i] + C )
+      t[j] = S
+    (C, S) = rest( t[inputSize] + C )
+    t[inputSize] = S
+    t[inputSize + 1] = C
+    C = 0
+    m = ( t[0]*np0 ) % base
+    for j in range( inputSize ) :
+      (C, S) = rest( t[j] + m*n[j] + C )
+      t[j] = S
+    (C, S) = rest( t[inputSize] + C )
+    t[inputSize] = S
+    t[inputSize+1] = t[inputSize+1] + C
+    for j in range(inputSize+1) :
+      t[j] = t[j+1]
+  # REDUCTION
+  # B = 0
+  # for i in range( inputSize ) :
+  #   (B, D) = rest( t[i] - n[i] - B )
+  #   t[i] = D
+  # (B, D) = rest( t[wordSize] - B )
+  # t[wordSize] = D
+  # if B == 0 :
 
-  # check reduction
-  reduction = binExp()
+  out = 0
+  for i in range(inputSize)[::-1] :
+    out += t[i]* base**( ( inputSize-1 ) -i)
+
+  if out > N :
+    return True
+  else :
+    return False
+
+
+
+
+
+
 
 
 
@@ -107,6 +195,8 @@ if ( __name__ == "__main__" ) :
   for i in attacksE :
     attacks.append( encrypt( i, exp, publicKey[0] ) )
 
+  print "Attacks calculated.\nStarting interaction."
+
   # implement algorithm from paper
 
   # Produce a sub-process representing the attack target.
@@ -118,13 +208,8 @@ if ( __name__ == "__main__" ) :
   target_out = target.stdout
   target_in  = target.stdin
 
-  # start recovering by testing key {1,0,-,-,-,-,-,-}
-  #                                 {1,1,-,-,-,-,-,-}
-  #   and so on for each cypher-text and remember whether reduction occur or not
-  # and measuring time for decryption of each cypher-text in real device
-  # calculate correlation coefficient and choose the proper version
-
-  # Execute a function representing the attacker.
-  # attack()
-
-  # tune in parameters
+  # interact
+  time = interact(attacks)
+  # attack
+  secretKey = attack( attacks, publicKey[0], publicKey[1], time )
+  print "%X" % ( secretKey )
