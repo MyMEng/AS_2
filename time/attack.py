@@ -1,4 +1,5 @@
 import sys, subprocess, random
+from numpy import mean
 
 ############# code from Internet
 def egcd(a, b):
@@ -59,17 +60,39 @@ def encrypt( base, exponent, modulus ) :
 
 
 
+# d is assumed to have 64 bits
+def attack( guess, N, exp ) :
+  # interact
+  time = interact(guess)
 
-def attack( guess, N, exp, time ) :
   # print "r = %d" % ( r )
   reductionTable = []
+  average = []
   # for now on attack only first bit
-  for j in range(bits) :
+  for j in range(len(exp)-1) : # last bit must be guessed
     for i in guess :
-      # last bit must be guessed
+
+
+      
       reductionTable.append( binExp( i, exp, N, j ) )
 
-  print reductionTable
+    # print zip(reductionTable, time)
+    tuples = zip(reductionTable, time)
+    P, M = [], []
+    for k in tuples:
+      if k[0] :
+        P.append(k[1])
+      else :
+        M.append(k[1])
+    # print mean(P)
+    # print mean(M)
+    # print time
+    print abs(mean(P)-mean(M))
+    average.append(abs(mean(P)-mean(M)))
+    reductionTable=[]
+    # time = []
+
+  print mean(average)
 
   return "NO Key!"
 
@@ -128,9 +151,9 @@ def binExp( gr, r, N, j ) :
   (null, g) = CIOSMM(gr, rhosq(N), N)
 
   for n, i in enumerate( r ) : # --- start from most significant bit --- r[::-1]
-    result *= result % N
+    (null, result) = CIOSMM( result, result, N )#result *= result % N
     if i == '1' :
-      result *= g % N
+      (null, result) = CIOSMM( result, g, N )#result *= g % N
     # attack square
     if j == n :
       # return whether reduction was done or not
@@ -222,13 +245,10 @@ if ( __name__ == "__main__" ) :
   target_out = target.stdout
   target_in  = target.stdin
 
-  # interact
-  time = interact(attacks)
   # attack
-  # print attacks
-
   # assume exponent is all 1's
-  attackExp = 1024*'1'
+  # d is assumed to have 64 bits
+  attackExp = 64*'1'
 
-  secretKey = attack( attacks, publicKey[0], attackExp, time )
+  secretKey = attack( attacks, publicKey[0], attackExp )
   # print "%X" % ( secretKey )
