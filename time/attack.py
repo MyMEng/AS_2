@@ -18,7 +18,7 @@ def modinv(a, m):
 
 
 # number of attacks
-AttacksNo = 1#64
+AttacksNo = 64
 wordSize = 64
 base = 2 ** wordSize
 # input is 1024 bits that is 16 limbs in base 2 ** 64
@@ -64,8 +64,10 @@ def attack( guess, N, exp, time ) :
   # print "r = %d" % ( r )
   reductionTable = []
   # for now on attack only first bit
-  for i in guess :
-    reductionTable.append( binExp( i, exp, N, 1 ) )
+  for j in range(bits) :
+    for i in guess :
+      # last bit must be guessed
+      reductionTable.append( binExp( i, exp, N, j ) )
 
   print reductionTable
 
@@ -73,30 +75,13 @@ def attack( guess, N, exp, time ) :
 
 
 # perform limb operation with rest
-def rest( x, cb ) :
+def rest( x ) :
   # carry
-  if cb :
-    i = 0
-    C = x
-    # while C >= base:
-      # C -= base
-      # i += 1
-    C = C%base
-    # print (x-C)%base
-    i = (x-C)/base
-    return(i, C)
-    # if C > 0 :
-      # return (C, base-1)
-    # else :
-      # return (0, x)
-  # borrow
-  # else :
-    # if x > 0 :
-      # return (0, x)
-    # else :
-      # return (abs(x), 0)
+  C = x%base
+  i = (x-C)/base
+  return(i, C)
 
-# create limb with 0's fo given length
+# create limb with 0's for given length
 def nullLimb( size ) :
   t = []
   for i in range( size ) :
@@ -124,12 +109,23 @@ def limb( a ) :
     t.append(int(b[i*wordSize : (i+1)*wordSize], 2))
   return t
 
+# calculate rho^2 to change into Montgomery
+def rhosq(N) :
+    t = 1
+    for i in range(2*inputSize*wordSize):
+        t = (t+t)%N
+    return t
 
 # Section 2.1 binary exponentiation | g ** r
 #   *j* denote bit that we are attacking
 def binExp( gr, r, N, j ) :
-  result = (1* base**inputSize)%N
-  g = (gr* base**inputSize)%N
+  # compute mot representation of 1
+  # result = (1* base**inputSize)%N
+  (null, result) = CIOSMM(1, rhosq(N), N)
+
+  # compute mot representation of base
+  # g = (gr* base**inputSize)%N
+  (null, g) = CIOSMM(gr, rhosq(N), N)
 
   for n, i in enumerate( r ) : # --- start from most significant bit --- r[::-1]
     result *= result % N
@@ -138,24 +134,14 @@ def binExp( gr, r, N, j ) :
     # attack square
     if j == n :
       # return whether reduction was done or not
-      # last bit must be guessed
-
-              # # compute mot representation of base
-              # base = 1
-              # # compute mot representation of 1
-              # one = 1
-
-      # check reduction
-      return CIOSMM( result, result, N )
+      (bol, null) = CIOSMM( result, result, N )
+      return bol
   return -1
 
 
 # mock the CIOS Montgomery Multiplication with w= 64 | b =  2 ** 64
 #   return whether reduction was done or not
 def CIOSMM( x, y, N ) :
-  # q_1 = modinv(base**inputSize, N)
-  # print (x* q_1)%N#(x* base**inputSize)%N
-  # print N
   # *s* is the number of words in *x* and *y*
   # r = base ** inputSize
   a = limb( x )[::-1]
@@ -167,52 +153,30 @@ def CIOSMM( x, y, N ) :
   for i in range( inputSize ) :
     C = 0
     for j in range( inputSize ) :
-      (C, S) = rest( t[j] + a[j]*b[i] + C, True )
+      (C, S) = rest( t[j] + a[j]*b[i] + C )
       t[j] = S
-    (C, S) = rest( t[inputSize] + C, True )
+    (C, S) = rest( t[inputSize] + C )
     t[inputSize] = S
     t[inputSize + 1] = C
     C = 0
     m = ( t[0]*np0 ) % base
     for j in range( inputSize ) :
-      (C, S) = rest( t[j] + m*n[j] + C, True )
+      (C, S) = rest( t[j] + m*n[j] + C )
       t[j] = S
-    (C, S) = rest( t[inputSize] + C, True )
+    (C, S) = rest( t[inputSize] + C )
     t[inputSize] = S
     t[inputSize+1] = t[inputSize+1] + C
     for j in range(inputSize+1) :
       t[j] = t[j+1]
   # REDUCTION
-  # B = 0
-  # for i in range( inputSize ) :
-  #   (B, D) = rest( t[i] - n[i] - B, False )
-  #   t[i] = D
-  # (B, D) = rest( t[wordSize] - B, False )
-  # t[wordSize] = D
-  # if B == 0 :
-
-  # print t
-
   out = 0
   for i in range(inputSize) :
     out += t[i]* base**i
 
-  # print (out* q_1)%N#(out* base**inputSize)%N
-  # print out
-  # print N
-
   if out > N :
-    return out-N#True
+    return (True,out-N)
   else :
-    return out#False
-
-
-
-
-
-
-
-
+    return (False,out)
 
 
 if ( __name__ == "__main__" ) :
@@ -262,5 +226,9 @@ if ( __name__ == "__main__" ) :
   time = interact(attacks)
   # attack
   # print attacks
-  secretKey = attack( attacks, publicKey[0], "0111101111001111100001110", time )
+
+  # assume exponent is all 1's
+  attackExp = 1024*'1'
+
+  secretKey = attack( attacks, publicKey[0], attackExp, time )
   # print "%X" % ( secretKey )
