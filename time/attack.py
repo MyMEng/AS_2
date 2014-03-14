@@ -5,6 +5,7 @@ AttacksNo = 64
 wordSize = 64
 base = 2 ** wordSize
 # input is 1024 bits that is 16 limbs in base 2 ** 64
+bits = 1024
 inputSize = 16
 
 ####
@@ -54,29 +55,6 @@ def attack( guess, pk, exp, time ) :
   return "NO Key!"
 
 
-# Section 2.1 binary exponentiation | g ** r
-#   *j* denote bit that we are attacking
-def binExp( g, r, N, j ) :
-  result = 1
-
-  for n, i in enumerate( r ) : # --- start from most significant bit --- r[::-1]
-    result *= result % N
-    if i == '1' :
-      result *= g % N
-    # attack square
-    if j == n :
-      # return whether reduction was done or not
-      # last bit must be guessed
-
-              # # compute mot representation of base
-              # base = 1
-              # # compute mot representation of 1
-              # one = 1
-
-      # check reduction
-      return CIOSMM( result, result, N )
-  return -1
-
 # perform limb operation with rest
 def rest( x, cb ) :
   # carry
@@ -101,39 +79,82 @@ def nullLimb( size ) :
     t.append(0)
   return t
 
+# compute np
+def nprime( N ) :
+  t = 1
+  for i in range( wordSize - 1 ) :
+    t = ( t * t * N ) % base
+  return ( -1 * t ) % base
+
 # create limb representation of given number
 # index 0 is least significant
 def limb( a ) :
   b = "{0:b}".format(a)
+
+  # padding
+  if len(b) != bits :
+    b = (bits-len(b))*'0' + b
+
   t = []
   for i in range(inputSize) :
     t.append(int(b[i*wordSize : (i+1)*wordSize], 2))
   return t
 
+
+# Section 2.1 binary exponentiation | g ** r
+#   *j* denote bit that we are attacking
+def binExp( g, r, N, j ) :
+  result = 1
+
+  for n, i in enumerate( r ) : # --- start from most significant bit --- r[::-1]
+    result *= result % N
+    if i == '1' :
+      result *= g % N
+    # attack square
+    if j == n :
+      # return whether reduction was done or not
+      # last bit must be guessed
+
+              # # compute mot representation of base
+              # base = 1
+              # # compute mot representation of 1
+              # one = 1
+
+      # check reduction
+      return CIOSMM( result, result, N )
+  return -1
+
+
 # mock the CIOS Montgomery Multiplication with w= 64 | b =  2 ** 64
 #   return whether reduction was done or not
 def CIOSMM( x, y, N ) :
   # *s* is the number of words in *x* and *y*
-  a = limb(x)
-  b = limb(y)
-  n = limb(N)
-  t = nullLimb(inputSize+1)
-  np0 = 0
+  # r = base ** inputSize
+
+  print x
+  print y
+  print N
+
+  a = limb( (x* base**inputSize)%N )[::-1]
+  b = limb( (y* base**inputSize)%N )[::-1]
+  n = limb(N)[::-1]
+  t = nullLimb(inputSize+2)
+  np0 = limb(nprime(N))[-1]
 
   for i in range( inputSize ) :
     C = 0
     for j in range( inputSize ) :
-      (C, S) = rest( t[j] + a[j]*b[i] + C )
+      (C, S) = rest( t[j] + a[j]*b[i] + C, True )
       t[j] = S
-    (C, S) = rest( t[inputSize] + C )
+    (C, S) = rest( t[inputSize] + C, True )
     t[inputSize] = S
     t[inputSize + 1] = C
     C = 0
     m = ( t[0]*np0 ) % base
     for j in range( inputSize ) :
-      (C, S) = rest( t[j] + m*n[j] + C )
+      (C, S) = rest( t[j] + m*n[j] + C, True )
       t[j] = S
-    (C, S) = rest( t[inputSize] + C )
+    (C, S) = rest( t[inputSize] + C, True )
     t[inputSize] = S
     t[inputSize+1] = t[inputSize+1] + C
     for j in range(inputSize+1) :
@@ -141,15 +162,17 @@ def CIOSMM( x, y, N ) :
   # REDUCTION
   # B = 0
   # for i in range( inputSize ) :
-  #   (B, D) = rest( t[i] - n[i] - B )
+  #   (B, D) = rest( t[i] - n[i] - B, False )
   #   t[i] = D
-  # (B, D) = rest( t[wordSize] - B )
+  # (B, D) = rest( t[wordSize] - B, False )
   # t[wordSize] = D
   # if B == 0 :
 
   out = 0
-  for i in range(inputSize)[::-1] :
-    out += t[i]* base**( ( inputSize-1 ) -i)
+  for i in range(inputSize) :
+    out += t[i]* base**i
+
+  print (out* base**inputSize)%N
 
   if out > N :
     return True
@@ -211,5 +234,5 @@ if ( __name__ == "__main__" ) :
   # interact
   time = interact(attacks)
   # attack
-  secretKey = attack( attacks, publicKey[0], publicKey[1], time )
+  secretKey = attack( attacks, publicKey[0], exp, time )
   print "%X" % ( secretKey )
