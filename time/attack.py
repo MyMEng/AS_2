@@ -41,25 +41,22 @@ def encrypt( base, exponent, modulus ) :
 
 # Section 2.1 binary exponentiation | g ** r
 #   *j* denote bit that we are attacking
-def binExp( g, r, N, j ) :
-  a = 1
-
-  # compute mot representation of base
-  # compute mot representation of 1
+def binExp( result, g, r, N, j ) :
+  # result = 1
 
   for n, i in enumerate( r ) : # --- start from most significant bit --- r[::-1]
-    a *= a # CIOSMM( a, a, N )
+    result *= result # CIOSMM( result, result, N )
 
     if i == '1' :
-      a *= g # CIOSMM( a, g, N )
+      result *= g # CIOSMM( result, g, N )
 
     # attack square
     if j == n :
-      a *= a # CIOSMM( a, a, N )
+      result *= result # CIOSMM( result, result, N )
       # return whether reduction was done or not
       # last bit must be guessed
 
-  return a
+  return True # False
 
 # mock the CIOS Montgomery Multiplication with w= 64 | b =  2 ** 64
 #   return whether reduction was done or not
@@ -67,6 +64,16 @@ def CIOSMM( x, y, N ) :
   w = 64
   b = 2 ** 64
   # *s* is the number of words in *x* and *y*
+
+def singleAttack() :
+  # compute mot representation of base
+  base = 1
+  # compute mot representation of 1
+  one = 1
+
+  # check reduction
+  reduction = binExp()
+
 
 
 
@@ -100,9 +107,7 @@ if ( __name__ == "__main__" ) :
   for i in attacksE :
     attacks.append( encrypt( i, exp, publicKey[0] ) )
 
-  print attacks
   # implement algorithm from paper
-
 
   # Produce a sub-process representing the attack target.
   target = subprocess.Popen( args   = sys.argv[ 1 ],
@@ -113,11 +118,13 @@ if ( __name__ == "__main__" ) :
   target_out = target.stdout
   target_in  = target.stdin
 
-  # Execute a function representing the attacker.
-  # attack()
-
   # start recovering by testing key {1,0,-,-,-,-,-,-}
   #                                 {1,1,-,-,-,-,-,-}
   #   and so on for each cypher-text and remember whether reduction occur or not
   # and measuring time for decryption of each cypher-text in real device
   # calculate correlation coefficient and choose the proper version
+
+  # Execute a function representing the attacker.
+  # attack()
+
+  # tune in parameters
