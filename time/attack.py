@@ -1,5 +1,8 @@
 import sys, subprocess, random
 from numpy import mean
+from time import clock
+# import numpy as np
+from numpy import mean
 
 ############# code from Internet
 def egcd(a, b):
@@ -19,7 +22,7 @@ def modinv(a, m):
 
 
 # number of attacks
-AttacksNo = 64
+AttacksNo = 128
 wordSize = 64
 base = 2 ** wordSize
 # input is 1024 bits that is 16 limbs in base 2 ** 64
@@ -45,7 +48,20 @@ def interact( G ) :
     # Receive time from attack target.
     t.append( int( target_out.readline().strip() ) )
     target_out.readline().strip()
+    # print "Timing: ", i, " done."
   
+  return t
+
+def interactR( G, N, d ) :
+  t = []
+  # Send      G      to   attack target.
+  for i in G :
+    target_in.write( "%X\n" % ( i ) ) ; target_in.flush()
+    target_in.write( "%X\n" % ( N ) ) ; target_in.flush()
+    target_in.write( "%X\n" % ( long(d, 2) ) ) ; target_in.flush()
+    # Receive time from attack target.
+    t.append( int( target_out.readline().strip() ) )
+    target_out.readline().strip()
   return t
 
 def encrypt( base, exponent, modulus ) :
@@ -62,39 +78,103 @@ def encrypt( base, exponent, modulus ) :
 
 # d is assumed to have 64 bits
 def attack( guess, N, exp ) :
+
+  print guess
+
   # interact
-  time = interact(guess)
+  # time = interact(guess)
+  time = interactR(guess, N, exp)
+  print "Timing done!"
+  # myTime = []
 
   # print "r = %d" % ( r )
-  reductionTable = []
-  average = []
+  reductionTable1 = []
+  reductionTable2 = []
   # for now on attack only first bit
-  for j in range(len(exp)-1) : # last bit must be guessed
+  for j in range(1,len(exp)-1) : # last bit must be guessed
     for i in guess :
-
-
-      
-      reductionTable.append( binExp( i, exp, N, j ) )
-
+      # t0 = clock()
+      reductionTable1.append( binExp( i, '11', N, j ) )
+      reductionTable2.append( binExp( i, '10', N, j ) )
+      # myTime.append(t0-clock())
     # print zip(reductionTable, time)
-    tuples = zip(reductionTable, time)
+    # tuples = zip(reductionTable, myTime, time)
+    tuples1 = zip(reductionTable1, time)
+    tuples2 = zip(reductionTable2, time)
     P, M = [], []
-    for k in tuples:
-      if k[0] :
+    PT, MT = [], []
+    for k in tuples1:
+      if k[0] : # with reduction
         P.append(k[1])
-      else :
+        # PT.append(k[2])
+      else : # with reduction
         M.append(k[1])
+        # MT.append(k[2])
+    for k in tuples2:
+      if k[0] : # with reduction
+        PT.append(k[1])
+        # PT.append(k[2])
+      else : # with reduction
+        MT.append(k[1])
+        # MT.append(k[2])
     # print mean(P)
     # print mean(M)
     # print time
-    print abs(mean(P)-mean(M))
-    average.append(abs(mean(P)-mean(M)))
-    reductionTable=[]
+    # print "goog"
+    # print abs(mean(P)-mean(M))
+    # print abs(mean(PT)-mean(MT))
+      # print np.corrcoef(P,PT)[0][1]
+      # print np.corrcoef(M,MT)[0][1]
+    # print reductionTable
+
+    print "M1:",mean(P)
+    print "M2:",mean(M)
+    # print abs(mean(P)-mean(M))
+    print "M3:",mean(PT)
+    print "M4:",mean(MT)
+    # print abs(mean(PT)-mean(MT))
+
+    print "\n"
+    reductionTable1=[]
+    reductionTable2=[]
+    # myTime = []
+
+
+
+
+
+
+
+    # for i in guess :
+    #   reductionTable.append( binExp( i, '1000'+60*'0', N, j ) )
+    # # print zip(reductionTable, time)
+    # tuples = zip(reductionTable, time)
+    # P, M = [], []
+    # for k in tuples:
+    #   if k[0] :
+    #     P.append(k[1])
+    #   else :
+    #     M.append(k[1])
+    # # print mean(P)
+    # # print mean(M)
+    # # print time
+    # print "nogoo"
+    # print abs(mean(P)-mean(M))
+    # average.append(abs(mean(P)-mean(M)))
+    # print reductionTable
+    # reductionTable=[]
+
+
+
+
+
+
+
+
+
     # time = []
-
-  print mean(average)
-
-  return "NO Key!"
+  # print mean(average)
+  # return "NO Key!"
 
 
 # perform limb operation with rest
@@ -189,6 +269,10 @@ def CIOSMM( x, y, N ) :
     (C, S) = rest( t[inputSize] + C )
     t[inputSize] = S
     t[inputSize+1] = t[inputSize+1] + C
+
+    if t[0] != 0:
+      print "Monti error!"
+
     for j in range(inputSize+1) :
       t[j] = t[j+1]
   # REDUCTION
@@ -248,7 +332,8 @@ if ( __name__ == "__main__" ) :
   # attack
   # assume exponent is all 1's
   # d is assumed to have 64 bits
-  attackExp = 64*'1'
+  attackExp = '1111'+20*'1'+20*'0'+20*'1'
 
-  secretKey = attack( attacks, publicKey[0], attackExp )
+  # secretKey = 
+  attack( attacks, publicKey[0], attackExp )
   # print "%X" % ( secretKey )
