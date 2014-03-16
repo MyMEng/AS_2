@@ -3,6 +3,30 @@ from numpy import mean
 # from time import clock
 import numpy as np
 from numpy import mean
+from itertools import imap
+
+def pearsonr(x, y):
+  # Assume len(x) == len(y)
+  n = len(x)
+  sum_x = float(sum(x))
+  sum_y = float(sum(y))
+  sum_x_sq = sum(map(lambda x: pow(x, 2), x))
+  sum_y_sq = sum(map(lambda x: pow(x, 2), y))
+  psum = sum(imap(lambda x, y: x * y, x, y))
+  num = psum - (sum_x * sum_y/n)
+  den = pow((sum_x_sq - pow(sum_x, 2) / n) * (sum_y_sq - pow(sum_y, 2) / n), 0.5)
+  if den == 0: return 0
+  return num / den
+
+
+def variance(li):
+    avg = mean(li)
+    sq_diff=0
+    for elem in li:
+        sq_diff += (elem - avg)**2
+    return float(sq_diff) / float(len(li))
+
+
 
 ############# code from Internet
 def egcd(a, b):
@@ -22,7 +46,7 @@ def modinv(a, m):
 
 
 # number of attacks
-AttacksNo = 7000
+AttacksNo = 40
 wordSize = 64
 base = 2 ** wordSize
 # input is 1024 bits that is 16 limbs in base 2 ** 64
@@ -100,14 +124,14 @@ def attack( guess, N, exp ) :
   baseline = interactR([1], N, exp)
   time = interactR(guess, N, exp)
   time[:] = [x - baseline[0] for x in time]
-  Et = mean(time)
-  delete = []
-  for i, t in enumerate(time) :
+  # Et = mean(time)
+  # delete = []
+  # for i, t in enumerate(time) :
     # if abs(t-Et) > 33 :
     # if t < (ReductionT*keySize)/2  :
     # if abs(t-Et) > 15 :
-    if abs( t - ReductionT*(keySize/2) )  > 15 :
-      delete.append(i)
+    # if abs( t - ReductionT*(keySize/2) )  > 15 :
+      # delete.append(i)
 
   # for i in delete[::-1] :
     # del time[i]
@@ -126,32 +150,36 @@ def attack( guess, N, exp ) :
   timingme1=[]
   timingme2=[]
   # as we know that first bit is 1 the multiplication step will take place
-  keyGuess = '1'
+  # keyGuess = '1'
   # time[:] = [x - MultiplicationT for x in time]
   # but we still don't know whether reduction occurred there
   # ?
   # for now on attack only first bit
 
   # general timing
-  T = CoreT + keySize*MultiplicationT + MultiplicationT
+  # T = CoreT + keySize*MultiplicationT + MultiplicationT
 
 
-  for j in range(1,len(exp)-1) : # last bit must be guessed
+  for j in range(62,len(exp)-1) : # last bit must be guessed
     for i in guess :
 
       # a[:] = [x - 13 for x in a]
-      tupl = binExp( i, '11', N, j )
+      tupl = binExp( i, '1010'+20*'0'+20*'1'+18*'0'+'1', N, j )
       # print "tupl: ", tupl
       reductionTable1.append( tupl[0] )
       timingme1.append(tupl[1])
 
       # should we substract multiplication time
 
-      tupl = binExp( i, '10', N, j )
+      tupl = binExp( i, '1010'+20*'0'+20*'1'+18*'0'+'0', N, j )
       reductionTable2.append( tupl[0] )
       timingme2.append(tupl[1])
 
       # shouldn we becous didnt occur
+
+    print timingme1
+    print "\n"
+    print timingme2
 
     tuples1 = zip(reductionTable1, time, timingme1)
     tuples2 = zip(reductionTable2, time, timingme2)
@@ -164,13 +192,14 @@ def attack( guess, N, exp ) :
     # T1nr = T + 2*MultiplicationT
     for k in tuples1:
       A.append(k[1])
-      B.append(k[2])
+      # B.append(k[1]-k[2])
       if k[0] : # with reduction
-        P.append(k[1])
+        P.append(k[1]-k[2])
+        B.append(k[1])
         # B.append(T1r)
         # PT.append(k[2])
       else : # with reduction
-        M.append(k[1])
+        M.append(k[1]-k[2])
         # B.append(T1nr)
         # MT.append(k[2])
 
@@ -178,13 +207,14 @@ def attack( guess, N, exp ) :
     # T2nr = T + MultiplicationT
     for k in tuples2:
       C.append(k[1])
-      D.append(k[2])
+      # D.append(k[1]-k[2])
       if k[0] : # with reduction
-        PT.append(k[1])
+        PT.append(k[1]-k[2])
+        D.append(k[1])
         # D.append(T2r)
         # PT.append(k[2])
       else : # with reduction
-        MT.append(k[1])
+        MT.append(k[1]-k[2])
         # D.append(T2nr)
         # MT.append(k[2])
     # print mean(P)
@@ -203,11 +233,22 @@ def attack( guess, N, exp ) :
     print "M3:",mean(PT)
     print "M4:",mean(MT)
     # print abs(mean(PT)-mean(MT))
-    print np.corrcoef(A,B)[0][1]
-    print np.corrcoef(C,D)[0][1]
+    print variance(B)
+    print variance(P)
+    print variance(D)
+    print variance(PT)
+    print "\n"
+    print variance(P)/variance(B)
+    print variance(PT)/variance(D)
+    # print pearsonr (A,B)
+    # print pearsonr (C,D)
+    # print np.corrcoef(A,B)[0][0]
+    # print np.corrcoef(A,B)[1][1]
+    # print np.corrcoef(C,D)[0][0]
+    # print np.corrcoef(C,D)[1][1]
 
-    print B
-    print D
+    # print B
+    # print D
 
     print "\n"
     # print reductionTable1
@@ -307,19 +348,24 @@ def binExp( gr, r, N, j ) :
   # compute mot representation of 1
   # result = (1* base**inputSize)%N
   (red, result) = CIOSMM(1, rhosq(N), N)
+  print red
 
   # compute mot representation of base
   # g = (gr* base**inputSize)%N
   (red, g) = CIOSMM(gr, rhosq(N), N)
+  print red
 
   for n, i in enumerate( r ) : # --- start from most significant bit --- r[::-1]
+
     (red, result) = CIOSMM( result, result, N )#result *= result % N
     if red :
       redno +=1
+
     if i == '1' :
       (red, result) = CIOSMM( result, g, N )#result *= g % N
       if red :
         redno +=1
+
     # attack square
     if j == n :
       # return whether reduction was done or not
@@ -327,7 +373,13 @@ def binExp( gr, r, N, j ) :
       if bol :
         redno +=1
       return (bol,redno)
-  return -1
+
+  (red, result) = CIOSMM( result, 1, N )#result *= g % N
+  if red :
+    redno +=1
+  print result
+
+  return (red, redno)
 
 
 # mock the CIOS Montgomery Multiplication with w= 64 | b =  2 ** 64
@@ -337,7 +389,7 @@ def CIOSMM( x, y, N ) :
   # r = base ** inputSize
   a = limb( x )[::-1]
   b = limb( y )[::-1]
-  n = limb(N)[::-1]
+  n = limb( N )[::-1]
   t = nullLimb(inputSize+2)
   np0 = limb(nprime(N))[-1]
 
@@ -351,24 +403,37 @@ def CIOSMM( x, y, N ) :
     t[inputSize + 1] = C
     C = 0
     m = ( t[0]*np0 ) % base
-    for j in range( inputSize ) :
-      (C, S) = rest( t[j] + m*n[j] + C )
-      t[j] = S
-    (C, S) = rest( t[inputSize] + C )
-    t[inputSize] = S
-    t[inputSize+1] = t[inputSize+1] + C
 
-    if t[0] != 0:
-      print "Monti error!"
+    
+    # for j in range( inputSize ) :
+    #   (C, S) = rest( t[j] + m*n[j] + C )
+    #   t[j] = S
+    # (C, S) = rest( t[inputSize] + C )
+    # t[inputSize] = S
+    # t[inputSize+1] = t[inputSize+1] + C
 
-    for j in range(inputSize+1) :
-      t[j] = t[j+1]
+    # if t[0] != 0:
+    #   print "Monti error!"
+
+    # for j in range(inputSize+1) :
+    #   t[j] = t[j+1]
+
+    # improvement
+    (C,S) = rest( t[0] + m*n[0] )
+    for j in range(1,inputSize) :
+      (C,S) = rest( t[j] + m*n[j] + C )
+      t[j-1] = S
+    (C,S) = rest( t[inputSize] + C )
+    t[inputSize-1] = S
+    t[inputSize] = t[inputSize+1] + C
+
+
   # REDUCTION
   out = 0
   for i in range(inputSize) :
     out += t[i]* base**i
 
-  if out > N :
+  if out >= N :
     return (True,out-N)
   else :
     return (False,out)
