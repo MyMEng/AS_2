@@ -1,7 +1,7 @@
 import sys, subprocess, random
 from numpy import mean
-from time import clock
-# import numpy as np
+# from time import clock
+import numpy as np
 from numpy import mean
 
 ############# code from Internet
@@ -22,16 +22,26 @@ def modinv(a, m):
 
 
 # number of attacks
-AttacksNo = 128
+AttacksNo = 7000
 wordSize = 64
 base = 2 ** wordSize
 # input is 1024 bits that is 16 limbs in base 2 ** 64
 bits = 1024
 inputSize = 16
+keySize = 64
 
 ####
 # Define parameters to distinguish attacks --- tuning-in
+#    1024 cycles for 0 exp
+#    1536 cycles for 1 exp
+# 302EC28F32A7DF954C9589136DE15B1E5DD036E86DDD4AA0F5076F152C0D3A74F2508E1987EF4AF883A3C3FD2E4E04AC1512888126BAA8EA0537A12F195F5A96FC6B64D035FDA06BD42E5F0DC61EA5DC04FA141C0A95F1615F71316356F9F255648FE60FAA7E81069C3892E50C0CF387DF15CEACA0130ED1CB9852952E65CAC1
+# EB3D0F3F6FE93288C441C49D9F2C16088E95FCABF7A42FC60DE0A01F4016D1FE10BBA25DC21F6843406A723E65E5562B510DA88E73C9CBE62C2594333897F902047096FB0020BFF20F9783F030A14399B20A1D464AA4B7AC928F6784A3A124C610512A9A0EB83B94C30ADEF06309A1205C6B9DC3442E5138E4F2F7AB5EC547CB
+# 3 / 2 / 1
 #
+#  multiply step has 1536-1024=512 cycles
+CoreT = 512
+MultiplicationT = 512
+ReductionT = 16#32
 ####
 
 def interact( G ) :
@@ -60,7 +70,8 @@ def interactR( G, N, d ) :
     target_in.write( "%X\n" % ( N ) ) ; target_in.flush()
     target_in.write( "%X\n" % ( long(d, 2) ) ) ; target_in.flush()
     # Receive time from attack target.
-    t.append( int( target_out.readline().strip() ) )
+    # time that is left is reductions in multiplications + squares + reductions in squares
+    t.append( int( target_out.readline().strip() )  )
     target_out.readline().strip()
   return t
 
@@ -79,43 +90,102 @@ def encrypt( base, exponent, modulus ) :
 # d is assumed to have 64 bits
 def attack( guess, N, exp ) :
 
-  print guess
+  # print guess
+  # baseline = interact([1])
+  # print baseline
 
   # interact
   # time = interact(guess)
+
+  baseline = interactR([1], N, exp)
   time = interactR(guess, N, exp)
+  time[:] = [x - baseline[0] for x in time]
+  Et = mean(time)
+  delete = []
+  for i, t in enumerate(time) :
+    # if abs(t-Et) > 33 :
+    # if t < (ReductionT*keySize)/2  :
+    # if abs(t-Et) > 15 :
+    if abs( t - ReductionT*(keySize/2) )  > 15 :
+      delete.append(i)
+
+  # for i in delete[::-1] :
+    # del time[i]
+    # del guess[i]
+
+  # give number of reductions
+  time[:] = [x / ReductionT for x in time]
+
+  print time
+  
   print "Timing done!"
-  # myTime = []
 
   # print "r = %d" % ( r )
   reductionTable1 = []
   reductionTable2 = []
+  timingme1=[]
+  timingme2=[]
+  # as we know that first bit is 1 the multiplication step will take place
+  keyGuess = '1'
+  # time[:] = [x - MultiplicationT for x in time]
+  # but we still don't know whether reduction occurred there
+  # ?
   # for now on attack only first bit
+
+  # general timing
+  T = CoreT + keySize*MultiplicationT + MultiplicationT
+
+
   for j in range(1,len(exp)-1) : # last bit must be guessed
     for i in guess :
-      # t0 = clock()
-      reductionTable1.append( binExp( i, '11', N, j ) )
-      reductionTable2.append( binExp( i, '10', N, j ) )
-      # myTime.append(t0-clock())
-    # print zip(reductionTable, time)
-    # tuples = zip(reductionTable, myTime, time)
-    tuples1 = zip(reductionTable1, time)
-    tuples2 = zip(reductionTable2, time)
+
+      # a[:] = [x - 13 for x in a]
+      tupl = binExp( i, '11', N, j )
+      # print "tupl: ", tupl
+      reductionTable1.append( tupl[0] )
+      timingme1.append(tupl[1])
+
+      # should we substract multiplication time
+
+      tupl = binExp( i, '10', N, j )
+      reductionTable2.append( tupl[0] )
+      timingme2.append(tupl[1])
+
+      # shouldn we becous didnt occur
+
+    tuples1 = zip(reductionTable1, time, timingme1)
+    tuples2 = zip(reductionTable2, time, timingme2)
     P, M = [], []
     PT, MT = [], []
+
+    A, B, C, D = [], [], [], []
+
+    # T1r = T + 2*MultiplicationT + ReductionT
+    # T1nr = T + 2*MultiplicationT
     for k in tuples1:
+      A.append(k[1])
+      B.append(k[2])
       if k[0] : # with reduction
         P.append(k[1])
+        # B.append(T1r)
         # PT.append(k[2])
       else : # with reduction
         M.append(k[1])
+        # B.append(T1nr)
         # MT.append(k[2])
+
+    # T2r = T + MultiplicationT + ReductionT
+    # T2nr = T + MultiplicationT
     for k in tuples2:
+      C.append(k[1])
+      D.append(k[2])
       if k[0] : # with reduction
         PT.append(k[1])
+        # D.append(T2r)
         # PT.append(k[2])
       else : # with reduction
         MT.append(k[1])
+        # D.append(T2nr)
         # MT.append(k[2])
     # print mean(P)
     # print mean(M)
@@ -133,11 +203,22 @@ def attack( guess, N, exp ) :
     print "M3:",mean(PT)
     print "M4:",mean(MT)
     # print abs(mean(PT)-mean(MT))
+    print np.corrcoef(A,B)[0][1]
+    print np.corrcoef(C,D)[0][1]
+
+    print B
+    print D
 
     print "\n"
+    # print reductionTable1
+    # print reductionTable2
     reductionTable1=[]
     reductionTable2=[]
+    timingme1=[]
+    timingme2=[]
     # myTime = []
+    # myTime1 = []
+    # myTime2 = []
 
 
 
@@ -222,23 +303,30 @@ def rhosq(N) :
 # Section 2.1 binary exponentiation | g ** r
 #   *j* denote bit that we are attacking
 def binExp( gr, r, N, j ) :
+  redno = 0
   # compute mot representation of 1
   # result = (1* base**inputSize)%N
-  (null, result) = CIOSMM(1, rhosq(N), N)
+  (red, result) = CIOSMM(1, rhosq(N), N)
 
   # compute mot representation of base
   # g = (gr* base**inputSize)%N
-  (null, g) = CIOSMM(gr, rhosq(N), N)
+  (red, g) = CIOSMM(gr, rhosq(N), N)
 
   for n, i in enumerate( r ) : # --- start from most significant bit --- r[::-1]
-    (null, result) = CIOSMM( result, result, N )#result *= result % N
+    (red, result) = CIOSMM( result, result, N )#result *= result % N
+    if red :
+      redno +=1
     if i == '1' :
-      (null, result) = CIOSMM( result, g, N )#result *= g % N
+      (red, result) = CIOSMM( result, g, N )#result *= g % N
+      if red :
+        redno +=1
     # attack square
     if j == n :
       # return whether reduction was done or not
       (bol, null) = CIOSMM( result, result, N )
-      return bol
+      if bol :
+        redno +=1
+      return (bol,redno)
   return -1
 
 
@@ -305,7 +393,13 @@ if ( __name__ == "__main__" ) :
   i = 0
   attacksE = []
   while( i < AttacksNo ) :
+
     rr = random.getrandbits( 1024 )
+    # take first 512 bits from modulus
+    # rr = long("{0:b}".format(publicKey[0])[:bits/2]+"{0:b}".format(random.getrandbits( bits/2 )), 2)
+    # rr = long("{0:b}".format(publicKey[0])[:bits*63/64]+"{0:b}".format(random.getrandbits( bits/64 )), 2)
+    # rr = random.getrandbits( 1 )
+
     # check whether are less than N
     if rr < publicKey[0] :
       attacksE.append( rr )
@@ -332,7 +426,7 @@ if ( __name__ == "__main__" ) :
   # attack
   # assume exponent is all 1's
   # d is assumed to have 64 bits
-  attackExp = '1111'+20*'1'+20*'0'+20*'1'
+  attackExp = '1010'+20*'0'+20*'1'+20*'0'
 
   # secretKey = 
   attack( attacks, publicKey[0], attackExp )
