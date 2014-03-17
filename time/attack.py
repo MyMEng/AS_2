@@ -341,11 +341,14 @@ def limb( a ) :
 
   t = []
   for i in range(inputSize) :
-    t.append(int(b[i*wordSize : (i+1)*wordSize], 2))
+    t.append(long(b[i*wordSize : (i+1)*wordSize], 2))
 
 
   # print "Limbo: ", t
   return t
+
+
+
 
 # calculate rho^2 to change into Montgomery
 def rhosq(N) :
@@ -415,12 +418,19 @@ def CIOSMM( x, y, N ) :
 
   for i in range( inputSize ) :
     C = 0
+    
+    # print t
+    # print b
+    print "\n\n"
+
     for j in range( inputSize ) :
       (C, S) = rest( t[j] + a[j]*b[i] + C )
       t[j] = S
     (C, S) = rest( t[inputSize] + C )
     t[inputSize] = S
     t[inputSize + 1] = C
+
+
     C = 0
     m = ( t[0]*np0 ) % base
 
@@ -437,7 +447,7 @@ def CIOSMM( x, y, N ) :
 
     # for j in range(inputSize+1) :
     #   t[j] = t[j+1]
-
+    print t
     # improvement
     (C,S) = rest( t[0] + m*n[0] )
     for j in range(1,inputSize) :
@@ -446,12 +456,13 @@ def CIOSMM( x, y, N ) :
     (C,S) = rest( t[inputSize] + C )
     t[inputSize-1] = S
     t[inputSize] = t[inputSize+1] + C
-
+    print t
+    print "-----"
 
   # REDUCTION
   # print t
   out = 0
-  for i in range(inputSize) :
+  for i in range(inputSize+1) :
     out += t[i]* base**i
 
   if out >= N :
