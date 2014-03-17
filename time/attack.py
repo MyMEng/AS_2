@@ -160,18 +160,18 @@ def attack( guess, N, exp ) :
   # T = CoreT + keySize*MultiplicationT + MultiplicationT
 
 
-  for j in range(2,len(exp)-1) : # last bit must be guessed
+  for j in range(3,len(exp)-1) : # last bit must be guessed
     for i in guess :
 
       # a[:] = [x - 13 for x in a]
-      tupl = binExp( i, '101', N, j )
+      tupl = binExp( i, '1011', N, j )
       # print "tupl: ", tupl
       reductionTable1.append( tupl[0] )
       timingme1.append(tupl[1])
 
       # should we substract multiplication time
 
-      tupl = binExp( i, '100', N, j )
+      tupl = binExp( i, '1010', N, j )
       reductionTable2.append( tupl[0] )
       timingme2.append(tupl[1])
 
@@ -187,19 +187,21 @@ def attack( guess, N, exp ) :
     PT, MT = [], []
 
     A, B, C, D = [], [], [], []
+    E, F = [], []
 
     # T1r = T + 2*MultiplicationT + ReductionT
     # T1nr = T + 2*MultiplicationT
     for k in tuples1:
       A.append(k[1])
+      E.append(k[2])
       # B.append(k[1]-k[2])
       if k[0] : # with reduction
-        P.append(k[1]-k[2])
-        B.append(k[1])
+        P.append(k[1])
+        B.append(k[2])
         # B.append(T1r)
         # PT.append(k[2])
       else : # with reduction
-        M.append(k[1]-k[2])
+        M.append(k[1])
         # B.append(T1nr)
         # MT.append(k[2])
 
@@ -207,14 +209,15 @@ def attack( guess, N, exp ) :
     # T2nr = T + MultiplicationT
     for k in tuples2:
       C.append(k[1])
+      F.append(k[2])
       # D.append(k[1]-k[2])
       if k[0] : # with reduction
-        PT.append(k[1]-k[2])
-        D.append(k[1])
+        PT.append(k[1])
+        D.append(k[2])
         # D.append(T2r)
         # PT.append(k[2])
       else : # with reduction
-        MT.append(k[1]-k[2])
+        MT.append(k[1])
         # D.append(T2nr)
         # MT.append(k[2])
     # print mean(P)
@@ -232,24 +235,27 @@ def attack( guess, N, exp ) :
     print "M3:",mean(PT)
     print "M4:",mean(MT)
     # print abs(mean(PT)-mean(MT))
-    print variance(B)
-    print variance(P)
-    print variance(D)
-    print variance(PT)
+    print "lower better"
+    print variance([P[x] - B[x] for x in range(len(P))]) / variance(P)
+    # print variance([P[x] - B[x] for x in range(len(P))])
+
+    print variance([PT[x] - D[x] for x in range(len(D))]) / variance(PT)
+    # print variance([PT[x] - D[x] for x in range(len(D))])
     print "\n"
     # print variance(P)/variance(B)
     # print variance(PT)/variance(D)
-    # print pearsonr (A,B)
-    # print pearsonr (C,D)
+    print "higher better"
+    print pearsonr (A,E)
+    print pearsonr (C,F)
     # print np.corrcoef(A,B)[0][0]
     # print np.corrcoef(A,B)[1][1]
     # print np.corrcoef(C,D)[0][0]
     # print np.corrcoef(C,D)[1][1]
 
-    print P
-    print B
-    print PT
-    print D
+    # print P
+    # print B
+    # print PT
+    # print D
 
     print "\n"
     # print reductionTable1
@@ -421,7 +427,7 @@ def CIOSMM( x, y, N ) :
     
     # print t
     # print b
-    print "\n\n"
+    # print "\n\n"
 
     for j in range( inputSize ) :
       (C, S) = rest( t[j] + a[j]*b[i] + C )
@@ -447,7 +453,7 @@ def CIOSMM( x, y, N ) :
 
     # for j in range(inputSize+1) :
     #   t[j] = t[j+1]
-    print t
+    # print t
     # improvement
     (C,S) = rest( t[0] + m*n[0] )
     for j in range(1,inputSize) :
@@ -456,8 +462,8 @@ def CIOSMM( x, y, N ) :
     (C,S) = rest( t[inputSize] + C )
     t[inputSize-1] = S
     t[inputSize] = t[inputSize+1] + C
-    print t
-    print "-----"
+    # print t
+    # print "-----"
 
   # REDUCTION
   # print t
