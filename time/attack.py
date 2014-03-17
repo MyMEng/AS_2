@@ -46,7 +46,7 @@ def modinv(a, m):
 
 
 # number of attacks
-AttacksNo = 40
+AttacksNo = 1000
 wordSize = 64
 base = 2 ** wordSize
 # input is 1024 bits that is 16 limbs in base 2 ** 64
@@ -160,18 +160,18 @@ def attack( guess, N, exp ) :
   # T = CoreT + keySize*MultiplicationT + MultiplicationT
 
 
-  for j in range(62,len(exp)-1) : # last bit must be guessed
+  for j in range(2,len(exp)-1) : # last bit must be guessed
     for i in guess :
 
       # a[:] = [x - 13 for x in a]
-      tupl = binExp( i, '1010'+20*'0'+20*'1'+18*'0'+'1', N, j )
+      tupl = binExp( i, '101', N, j )
       # print "tupl: ", tupl
       reductionTable1.append( tupl[0] )
       timingme1.append(tupl[1])
 
       # should we substract multiplication time
 
-      tupl = binExp( i, '1010'+20*'0'+20*'1'+18*'0'+'0', N, j )
+      tupl = binExp( i, '100', N, j )
       reductionTable2.append( tupl[0] )
       timingme2.append(tupl[1])
 
@@ -219,7 +219,6 @@ def attack( guess, N, exp ) :
         # MT.append(k[2])
     # print mean(P)
     # print mean(M)
-    # print time
     # print "goog"
     # print abs(mean(P)-mean(M))
     # print abs(mean(PT)-mean(MT))
@@ -238,8 +237,8 @@ def attack( guess, N, exp ) :
     print variance(D)
     print variance(PT)
     print "\n"
-    print variance(P)/variance(B)
-    print variance(PT)/variance(D)
+    # print variance(P)/variance(B)
+    # print variance(PT)/variance(D)
     # print pearsonr (A,B)
     # print pearsonr (C,D)
     # print np.corrcoef(A,B)[0][0]
@@ -247,8 +246,10 @@ def attack( guess, N, exp ) :
     # print np.corrcoef(C,D)[0][0]
     # print np.corrcoef(C,D)[1][1]
 
-    # print B
-    # print D
+    print P
+    print B
+    print PT
+    print D
 
     print "\n"
     # print reductionTable1
@@ -301,9 +302,15 @@ def attack( guess, N, exp ) :
 
 # perform limb operation with rest
 def rest( x ) :
+  # print "Cary in: ", x
   # carry
   C = x%base
   i = (x-C)/base
+  if (x-C) % base != 0 :
+    print "Carrying"
+  # print "Cary out: ", i, "    ", C
+  if i*2**64 + C != x or i >= 2**64 :
+    print "goczja"
   return(i, C)
 
 # create limb with 0's for given length
@@ -329,9 +336,15 @@ def limb( a ) :
   if len(b) != bits :
     b = (bits-len(b))*'0' + b
 
+  if len(b) != bits :
+    print "Limbing error"
+
   t = []
   for i in range(inputSize) :
     t.append(int(b[i*wordSize : (i+1)*wordSize], 2))
+
+
+  # print "Limbo: ", t
   return t
 
 # calculate rho^2 to change into Montgomery
@@ -348,18 +361,22 @@ def binExp( gr, r, N, j ) :
   # compute mot representation of 1
   # result = (1* base**inputSize)%N
   (red, result) = CIOSMM(1, rhosq(N), N)
-  print red
+  # print red
 
   # compute mot representation of base
   # g = (gr* base**inputSize)%N
   (red, g) = CIOSMM(gr, rhosq(N), N)
-  print red
+  # print red
 
   for n, i in enumerate( r ) : # --- start from most significant bit --- r[::-1]
 
+    # print "Round: ", n
+
+    # print "Comp1: ", result
     (red, result) = CIOSMM( result, result, N )#result *= result % N
     if red :
       redno +=1
+    # print "Result: ", result
 
     if i == '1' :
       (red, result) = CIOSMM( result, g, N )#result *= g % N
@@ -374,10 +391,11 @@ def binExp( gr, r, N, j ) :
         redno +=1
       return (bol,redno)
 
+  # print result
   (red, result) = CIOSMM( result, 1, N )#result *= g % N
   if red :
     redno +=1
-  print result
+  # print result
 
   return (red, redno)
 
@@ -386,6 +404,8 @@ def binExp( gr, r, N, j ) :
 #   return whether reduction was done or not
 def CIOSMM( x, y, N ) :
   # *s* is the number of words in *x* and *y*
+  if x >= 2**1024-1 or y >= 2**1024-1:
+    print "SHOUT"
   # r = base ** inputSize
   a = limb( x )[::-1]
   b = limb( y )[::-1]
@@ -404,7 +424,7 @@ def CIOSMM( x, y, N ) :
     C = 0
     m = ( t[0]*np0 ) % base
 
-    
+
     # for j in range( inputSize ) :
     #   (C, S) = rest( t[j] + m*n[j] + C )
     #   t[j] = S
@@ -429,14 +449,15 @@ def CIOSMM( x, y, N ) :
 
 
   # REDUCTION
+  # print t
   out = 0
   for i in range(inputSize) :
     out += t[i]* base**i
 
   if out >= N :
-    return (True,out-N)
+    return (True, out-N)
   else :
-    return (False,out)
+    return (False, out)
 
 
 if ( __name__ == "__main__" ) :
@@ -466,7 +487,7 @@ if ( __name__ == "__main__" ) :
     # rr = random.getrandbits( 1 )
 
     # check whether are less than N
-    if rr < publicKey[0] :
+    if rr < publicKey[0] and rr%2==0 :
       attacksE.append( rr )
       i += 1
 
