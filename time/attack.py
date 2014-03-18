@@ -46,7 +46,7 @@ def modinv(a, m):
 
 
 # number of attacks
-AttacksNo = 1500
+AttacksNo = 15000
 wordSize = 64
 base = 2 ** wordSize
 # input is 1024 bits that is 16 limbs in base 2 ** 64
@@ -115,14 +115,14 @@ def encrypt( base, exponent, modulus ) :
 def attack( guess, N, exp ) :
 
   # print guess
-  # baseline = interact([1])
+  baseline = interact([1])
   # print baseline
 
   # interact
-  # time = interact(guess)
+  time = interact(guess)
 
-  baseline = interactR([1], N, exp)
-  time = interactR(guess, N, exp)
+  # baseline = interactR([1], N, exp)
+  # time = interactR(guess, N, exp)
   time[:] = [x - baseline[0] for x in time]
   # Et = mean(time)
   # delete = []
@@ -149,7 +149,7 @@ def attack( guess, N, exp ) :
     exps.append(g)
 
 
-  print time
+  # print time
   
   print "Timing done!"
 
@@ -184,7 +184,11 @@ def attack( guess, N, exp ) :
       tupl = binExp( i, '1', N, 0, results[x], exps[x], reductionNo[x] )
       # print "tupl: ", tupl
       reductionTable1.append( tupl[0] )
-      timingme1.append(tupl[1])
+      if tupl[0]:
+        niu = tupl[1] + 1
+      else :
+        niu = tupl[1]
+      timingme1.append(niu)
       results1.append(tupl[2])
 
       # should we substract multiplication time
@@ -193,7 +197,11 @@ def attack( guess, N, exp ) :
       # tupl = binExp( i, '1'+keyGuess+'0', N, j )
       tupl = binExp( i, '0', N, 0, results[x], exps[x], reductionNo[x] )
       reductionTable2.append( tupl[0] )
-      timingme2.append(tupl[1])
+      if tupl[0]:
+        niu = tupl[1] + 1
+      else :
+        niu = tupl[1]
+      timingme2.append(niu)
       results2.append(tupl[2])
 
       # shouldn we becous didnt occur
@@ -286,8 +294,8 @@ def attack( guess, N, exp ) :
     # print np.corrcoef(C,D)[0][0]
     # print np.corrcoef(C,D)[1][1]
 
-    # if mean(P) - mean(M) > mean(PT) - mean(MT) :
-    if mean(B) + mean(P) - mean(G) - mean(M) > mean(D) + mean(PT) - mean(H) - mean(MT) :
+    if mean(P) - mean(M) > mean(PT) - mean(MT) :
+    # if mean(B) + mean(P) - mean(G) - mean(M) > mean(D) + mean(PT) - mean(H) - mean(MT) :
       keyGuess += '1'
       results = results1
       reductionNo = timingme1
@@ -414,7 +422,9 @@ def rhosq(N) :
 
 # Section 2.1 binary exponentiation | g ** r
 #   *j* denote bit that we are attacking
-def binExp( gr, r, N, j, result, g, redno  ) :
+def binExp( gr, r, N, j, res, g, reno  ) :
+  result = res
+  redno = reno
   # redno = 0
   # compute mot representation of 1
   # result = (1* base**inputSize)%N
@@ -559,8 +569,9 @@ if ( __name__ == "__main__" ) :
 
   # encrypt them with e and N
   attacks =[]
-  for i in attacksE :
-    attacks.append( encrypt( i, exp, publicKey[0] ) )
+  # for i in attacksE :
+    # attacks.append( encrypt( i, exp, publicKey[0] ) )
+  attacks = attacksE
 
   print "Attacks calculated.\nStarting interaction."
 
