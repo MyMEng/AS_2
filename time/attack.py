@@ -140,6 +140,15 @@ def attack( guess, N, exp ) :
   # give number of reductions
   time[:] = [x / ReductionT for x in time]
 
+  (red, result) = CIOSMM(1, rhosq(N), N)
+  results = [result for i in range(AttacksNo)]
+  reductionNo = [0 for i in range(AttacksNo)]
+  exps = []
+  for gr in guess :
+    (red, g) = CIOSMM(gr, rhosq(N), N)
+    exps.append(g)
+
+
   print time
   
   print "Timing done!"
@@ -149,8 +158,10 @@ def attack( guess, N, exp ) :
   reductionTable2 = []
   timingme1=[]
   timingme2=[]
+  results1 = []
+  results2 = []
   # as we know that first bit is 1 the multiplication step will take place
-  keyGuess = ''
+  keyGuess = '1'
   # time[:] = [x - MultiplicationT for x in time]
   # but we still don't know whether reduction occurred there
   # ?
@@ -158,25 +169,32 @@ def attack( guess, N, exp ) :
 
   # general timing
   # T = CoreT + keySize*MultiplicationT + MultiplicationT
+  for x, i in enumerate(guess) :
+    (nm,reductionNo[x],results[x] ) = binExp( i, '1', N, 0, results[x], exps[x], reductionNo[x] )
+
 
 
   # for j in range(5,len(exp)-1) : # last bit must be guessed
   for j in range(1,len(exp)-1) : # last bit must be guessed
-    for i in guess :
+    for x, i in enumerate(guess) :
 
       # a[:] = [x - 13 for x in a]
       # tupl = binExp( i, '1'+'1011'+keyGuess+'1', N, j )
-      tupl = binExp( i, '1'+keyGuess+'1', N, j )
+      # tupl = binExp( i, '1'+keyGuess+'1', N, j )
+      tupl = binExp( i, '1', N, 0, results[x], exps[x], reductionNo[x] )
       # print "tupl: ", tupl
       reductionTable1.append( tupl[0] )
       timingme1.append(tupl[1])
+      results1.append(tupl[2])
 
       # should we substract multiplication time
 
       # tupl = binExp( i, '1'+'1011'+keyGuess+'0', N, j )
-      tupl = binExp( i, '1'+keyGuess+'0', N, j )
+      # tupl = binExp( i, '1'+keyGuess+'0', N, j )
+      tupl = binExp( i, '0', N, 0, results[x], exps[x], reductionNo[x] )
       reductionTable2.append( tupl[0] )
       timingme2.append(tupl[1])
+      results2.append(tupl[2])
 
       # shouldn we becous didnt occur
 
@@ -271,10 +289,14 @@ def attack( guess, N, exp ) :
     # if mean(P) - mean(M) > mean(PT) - mean(MT) :
     if mean(B) + mean(P) - mean(G) - mean(M) > mean(D) + mean(PT) - mean(H) - mean(MT) :
       keyGuess += '1'
+      results = results1
+      reductionNo = timingme1
     else :
       keyGuess += '0'
+      results = results2
+      reductionNo = timingme2
     # print '1'+'1011'+keyGuess
-    print '1'+keyGuess
+    print keyGuess
 
 
     # print P
@@ -289,6 +311,8 @@ def attack( guess, N, exp ) :
     reductionTable2=[]
     timingme1=[]
     timingme2=[]
+    results1 = []
+    results2 = []
     # myTime = []
     # myTime1 = []
     # myTime2 = []
@@ -390,16 +414,16 @@ def rhosq(N) :
 
 # Section 2.1 binary exponentiation | g ** r
 #   *j* denote bit that we are attacking
-def binExp( gr, r, N, j ) :
-  redno = 0
+def binExp( gr, r, N, j, result, g, redno  ) :
+  # redno = 0
   # compute mot representation of 1
   # result = (1* base**inputSize)%N
-  (red, result) = CIOSMM(1, rhosq(N), N)
+  # (red, result) = CIOSMM(1, rhosq(N), N)
   # print red
 
   # compute mot representation of base
   # g = (gr* base**inputSize)%N
-  (red, g) = CIOSMM(gr, rhosq(N), N)
+  # (red, g) = CIOSMM(gr, rhosq(N), N)
   # print red
 
   for n, i in enumerate( r ) : # --- start from most significant bit --- r[::-1]
@@ -421,17 +445,17 @@ def binExp( gr, r, N, j ) :
     if j == n :
       # return whether reduction was done or not
       (bol, null) = CIOSMM( result, result, N )
-      if bol :
-        redno +=1
-      return (bol,redno)
+      # if bol :
+        # redno +=1
+      return (bol,redno, result)
 
   # print result
-  (red, result) = CIOSMM( result, 1, N )#result *= g % N
-  if red :
-    redno +=1
+  # (red, result) = CIOSMM( result, 1, N )#result *= g % N
+  # if red :
+    # redno +=1
   # print result
 
-  return (red, redno)
+  # return (red, redno)
 
 
 # mock the CIOS Montgomery Multiplication with w= 64 | b =  2 ** 64
