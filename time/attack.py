@@ -46,7 +46,7 @@ def modinv(a, m):
 
 
 # number of attacks
-AttacksNo = 1000
+AttacksNo = 1500
 wordSize = 64
 base = 2 ** wordSize
 # input is 1024 bits that is 16 limbs in base 2 ** 64
@@ -150,7 +150,7 @@ def attack( guess, N, exp ) :
   timingme1=[]
   timingme2=[]
   # as we know that first bit is 1 the multiplication step will take place
-  # keyGuess = '1'
+  keyGuess = ''
   # time[:] = [x - MultiplicationT for x in time]
   # but we still don't know whether reduction occurred there
   # ?
@@ -160,26 +160,29 @@ def attack( guess, N, exp ) :
   # T = CoreT + keySize*MultiplicationT + MultiplicationT
 
 
-  for j in range(3,len(exp)-1) : # last bit must be guessed
+  # for j in range(5,len(exp)-1) : # last bit must be guessed
+  for j in range(1,len(exp)-1) : # last bit must be guessed
     for i in guess :
 
       # a[:] = [x - 13 for x in a]
-      tupl = binExp( i, '1011', N, j )
+      # tupl = binExp( i, '1'+'1011'+keyGuess+'1', N, j )
+      tupl = binExp( i, '1'+keyGuess+'1', N, j )
       # print "tupl: ", tupl
       reductionTable1.append( tupl[0] )
       timingme1.append(tupl[1])
 
       # should we substract multiplication time
 
-      tupl = binExp( i, '1010', N, j )
+      # tupl = binExp( i, '1'+'1011'+keyGuess+'0', N, j )
+      tupl = binExp( i, '1'+keyGuess+'0', N, j )
       reductionTable2.append( tupl[0] )
       timingme2.append(tupl[1])
 
       # shouldn we becous didnt occur
 
-    print timingme1
-    print "\n"
-    print timingme2
+    # print timingme1
+    # print "\n"
+    # print timingme2
 
     tuples1 = zip(reductionTable1, time, timingme1)
     tuples2 = zip(reductionTable2, time, timingme2)
@@ -188,6 +191,7 @@ def attack( guess, N, exp ) :
 
     A, B, C, D = [], [], [], []
     E, F = [], []
+    G, H = [], []
 
     # T1r = T + 2*MultiplicationT + ReductionT
     # T1nr = T + 2*MultiplicationT
@@ -202,6 +206,7 @@ def attack( guess, N, exp ) :
         # PT.append(k[2])
       else : # with reduction
         M.append(k[1])
+        G.append(k[2])
         # B.append(T1nr)
         # MT.append(k[2])
 
@@ -218,6 +223,7 @@ def attack( guess, N, exp ) :
         # PT.append(k[2])
       else : # with reduction
         MT.append(k[1])
+        H.append(k[2])
         # D.append(T2nr)
         # MT.append(k[2])
     # print mean(P)
@@ -235,22 +241,41 @@ def attack( guess, N, exp ) :
     print "M3:",mean(PT)
     print "M4:",mean(MT)
     # print abs(mean(PT)-mean(MT))
-    print "lower better"
-    print variance([P[x] - B[x] for x in range(len(P))]) / variance(P)
+      # print "lower better"
+      # print variance([P[x] - B[x] for x in range(len(P))]) / variance(P)
     # print variance([P[x] - B[x] for x in range(len(P))])
 
-    print variance([PT[x] - D[x] for x in range(len(D))]) / variance(PT)
+      # print variance([PT[x] - D[x] for x in range(len(D))]) / variance(PT)
     # print variance([PT[x] - D[x] for x in range(len(D))])
-    print "\n"
+    # print "\n"
     # print variance(P)/variance(B)
     # print variance(PT)/variance(D)
+
+
+    print "My1:",mean(B)
+    print "My2:",mean(G)
+    print "My3:",mean(D)
+    print "My4:",mean(H)
+
+
     print "higher better"
-    print pearsonr (A,E)
-    print pearsonr (C,F)
+        # print pearsonr (A,E)
+        # print pearsonr (C,F)
+    print pearsonr (P,B)
+    print pearsonr (PT,D)
     # print np.corrcoef(A,B)[0][0]
     # print np.corrcoef(A,B)[1][1]
     # print np.corrcoef(C,D)[0][0]
     # print np.corrcoef(C,D)[1][1]
+
+    # if mean(P) - mean(M) > mean(PT) - mean(MT) :
+    if mean(B) + mean(P) - mean(G) - mean(M) > mean(D) + mean(PT) - mean(H) - mean(MT) :
+      keyGuess += '1'
+    else :
+      keyGuess += '0'
+    # print '1'+'1011'+keyGuess
+    print '1'+keyGuess
+
 
     # print P
     # print B
@@ -529,7 +554,7 @@ if ( __name__ == "__main__" ) :
   # attack
   # assume exponent is all 1's
   # d is assumed to have 64 bits
-  attackExp = '1010'+20*'0'+20*'1'+20*'0'
+  attackExp = '1010'+20*'0'+20*'1'+19*'0'+'1'
 
   # secretKey = 
   attack( attacks, publicKey[0], attackExp )
