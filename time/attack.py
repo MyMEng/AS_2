@@ -1,49 +1,10 @@
+#! /usr/bin/python
+
 import sys, subprocess, random
 from numpy import mean
-# from time import clock
 import numpy as np
 from numpy import mean
 from itertools import imap
-
-def pearsonr(x, y):
-  # Assume len(x) == len(y)
-  n = len(x)
-  sum_x = float(sum(x))
-  sum_y = float(sum(y))
-  sum_x_sq = sum(map(lambda x: pow(x, 2), x))
-  sum_y_sq = sum(map(lambda x: pow(x, 2), y))
-  psum = sum(imap(lambda x, y: x * y, x, y))
-  num = psum - (sum_x * sum_y/n)
-  den = pow((sum_x_sq - pow(sum_x, 2) / n) * (sum_y_sq - pow(sum_y, 2) / n), 0.5)
-  if den == 0: return 0
-  return num / den
-
-
-def variance(li):
-    avg = mean(li)
-    sq_diff=0
-    for elem in li:
-        sq_diff += (elem - avg)**2
-    return float(sq_diff) / float(len(li))
-
-
-
-############# code from Internet
-def egcd(a, b):
-    if a == 0:
-        return (b, 0, 1)
-    else:
-        g, y, x = egcd(b % a, a)
-        return (g, x - (b // a) * y, y)
-
-def modinv(a, m):
-    g, x, y = egcd(a, m)
-    if g != 1:
-        raise Exception('modular inverse does not exist')
-    else:
-        return x % m
-############# code from Internet
-
 
 # number of attacks
 AttacksNo = 20000
@@ -52,7 +13,6 @@ base = 2 ** wordSize
 # input is 1024 bits that is 16 limbs in base 2 ** 64
 bits = 1024
 inputSize = 16
-keySize = 64
 
 ####
 # Define parameters to distinguish attacks --- tuning-in
@@ -65,16 +25,11 @@ keySize = 64
 #  multiply step has 1536-1024=512 cycles
 CoreT = 512
 MultiplicationT = 512
-ReductionT = 16#32
+ReductionT = 16
 ####
 
+# interact with real device
 def interact( G ) :
-
-  # start recovering by testing key {1,0,-,-,-,-,-,-}
-  #                                 {1,1,-,-,-,-,-,-}
-  #   and so on for each cypher-text and remember whether reduction occur or not
-  # and measuring time for decryption of each cypher-text i
-
   t = []
   # Send      G      to   attack target.
   for i in G :
@@ -82,10 +37,9 @@ def interact( G ) :
     # Receive time from attack target.
     t.append( int( target_out.readline().strip() ) )
     target_out.readline().strip()
-    # print "Timing: ", i, " done."
-  
   return t
 
+# interact with altered device --- testing stage
 def interactR( G, N, d ) :
   t = []
   # Send      G      to   attack target.
@@ -99,6 +53,7 @@ def interactR( G, N, d ) :
     target_out.readline().strip()
   return t
 
+# binary modular exponentiation
 def encrypt( base, exponent, modulus ) :
   a = 1
   for i in exponent :
@@ -108,81 +63,54 @@ def encrypt( base, exponent, modulus ) :
     a = a % modulus
   return a
 
-
-
-
-# d is assumed to have 64 bits
+# attack given device
+#   start recovering by testing key {1,0,-,-,-,-,-,-}
+#                                   {1,1,-,-,-,-,-,-}
+#   and so on for each cypher-text and remember whether reduction occurred
+#   measuring time for decryption of each cypher-text
 def attack( guess, N, exp ) :
-
-  # print guess
   baseline = interact([1])
-  # print baseline
-
-  # interact
+  # interact --- get time measurements
   time = interact(guess)
+  print "Timing done!"
 
+  # testing stage --- tuning parameters
   # baseline = interactR([1], N, exp)
   # time = interactR(guess, N, exp)
-                                      # time[:] = [x - baseline[0] for x in time]
-  # Et = mean(time)
-  # delete = []
-  # for i, t in enumerate(time) :
-    # if abs(t-Et) > 33 :
-    # if t < (ReductionT*keySize)/2  :
-    # if abs(t-Et) > 15 :
-    # if abs( t - ReductionT*(keySize/2) )  > 15 :
-      # delete.append(i)
-
-  # for i in delete[::-1] :
-    # del time[i]
-    # del guess[i]
-
+  # time[:] = [x - baseline[0] for x in time]
   # give number of reductions
-                                        # time[:] = [x / ReductionT for x in time]
+  # time[:] = [x / ReductionT for x in time]
 
-  (red, result) = CIOSMM(1, rhosq(N), N)
+  # pre-compute 1 in Montgomery representation
+  rsq = rhosq(N)
+  (red, result) = CIOSMM(1, rsq, N)
   results = [result for i in range(AttacksNo)]
   reductionNo = [0 for i in range(AttacksNo)]
   exps = []
-  for gr in guess :
-    (red, g) = CIOSMM(gr, rhosq(N), N)
-    exps.append(g)
+  for g in guess :
+    (red, mg) = CIOSMM(g, rsq, N)
+    exps.append(mg)
 
-
-  # print time
+  print "All needed values precomputed!"
   
-  print "Timing done!"
-
-  # print "r = %d" % ( r )
+  # define needed variables
   reductionTable1 = []
   reductionTable2 = []
   timingme1=[]
   timingme2=[]
   results1 = []
   results2 = []
+
   # as we know that first bit is 1 the multiplication step will take place
   keyGuess = '1'
   # time[:] = [x - MultiplicationT for x in time]
-  # but we still don't know whether reduction occurred there
-  # ?
-  # for now on attack only first bit
-
-  # general timing
-  # T = CoreT + keySize*MultiplicationT + MultiplicationT
   for x, i in enumerate(guess) :
     (nm,reductionNo[x],results[x] ) = binExp( i, '1', N, 0, results[x], exps[x], reductionNo[x] )
 
-
-
-  # for j in range(5,len(exp)-1) : # last bit must be guessed
   for j in range(1,len(exp)-1) : # last bit must be guessed
     for x, i in enumerate(guess) :
-
-      # a[:] = [x - 13 for x in a]
-      # tupl = binExp( i, '1'+'1011'+keyGuess+'1', N, j )
-      # tupl = binExp( i, '1'+keyGuess+'1', N, j )
+      # try guess 1
       tupl = binExp( i, '1', N, 0, results[x], exps[x], reductionNo[x] )
-      # print "tupl: ", tupl
       reductionTable1.append( tupl[0] )
       if tupl[0]:
         niu = tupl[1] + 1
@@ -191,10 +119,7 @@ def attack( guess, N, exp ) :
       timingme1.append(niu)
       results1.append(tupl[2])
 
-      # should we substract multiplication time
-
-      # tupl = binExp( i, '1'+'1011'+keyGuess+'0', N, j )
-      # tupl = binExp( i, '1'+keyGuess+'0', N, j )
+      # try guess 0
       tupl = binExp( i, '0', N, 0, results[x], exps[x], reductionNo[x] )
       reductionTable2.append( tupl[0] )
       if tupl[0]:
@@ -204,98 +129,50 @@ def attack( guess, N, exp ) :
       timingme2.append(niu)
       results2.append(tupl[2])
 
-      # shouldn we becous didnt occur
-
-    # print timingme1
-    # print "\n"
-    # print timingme2
-
+    # create tuples for easier handling
     tuples1 = zip(reductionTable1, time, timingme1)
     tuples2 = zip(reductionTable2, time, timingme2)
     P, M = [], []
     PT, MT = [], []
 
-    A, B, C, D = [], [], [], []
-    E, F = [], []
-    G, H = [], []
+    # testing variables --- testing
+    # A, B, C, D, E, F, G, H = [], [], [], [], [], [], [], []
 
-    # T1r = T + 2*MultiplicationT + ReductionT
-    # T1nr = T + 2*MultiplicationT
+    # divide samples into two groups - 0:red/noRed | 1:red/noRed
     for k in tuples1:
-      A.append(k[1])
-      E.append(k[2])
+      # A.append(k[1])
+      # E.append(k[2])
       # B.append(k[1]-k[2])
       if k[0] : # with reduction
         P.append(k[1])
-        B.append(k[2])
-        # B.append(T1r)
-        # PT.append(k[2])
-      else : # with reduction
+        # B.append(k[2])
+      else : # withOUT reduction
         M.append(k[1])
-        G.append(k[2])
-        # B.append(T1nr)
+        # G.append(k[2])
         # MT.append(k[2])
-
-    # T2r = T + MultiplicationT + ReductionT
-    # T2nr = T + MultiplicationT
     for k in tuples2:
-      C.append(k[1])
-      F.append(k[2])
+      # C.append(k[1])
+      # F.append(k[2])
       # D.append(k[1]-k[2])
       if k[0] : # with reduction
         PT.append(k[1])
-        D.append(k[2])
-        # D.append(T2r)
+        # D.append(k[2])
         # PT.append(k[2])
-      else : # with reduction
+      else : # withOUT reduction
         MT.append(k[1])
-        H.append(k[2])
-        # D.append(T2nr)
-        # MT.append(k[2])
-    # print mean(P)
-    # print mean(M)
-    # print "goog"
-    # print abs(mean(P)-mean(M))
-    # print abs(mean(PT)-mean(MT))
-      # print np.corrcoef(P,PT)[0][1]
-      # print np.corrcoef(M,MT)[0][1]
-    # print reductionTable
+        # H.append(k[2])
 
-    print "M1:",mean(P)
-    print "M2:",mean(M)
-    # print abs(mean(P)-mean(M))
-    print "M3:",mean(PT)
-    print "M4:",mean(MT)
-    # print abs(mean(PT)-mean(MT))
-      # print "lower better"
-      # print variance([P[x] - B[x] for x in range(len(P))]) / variance(P)
-    # print variance([P[x] - B[x] for x in range(len(P))])
+    print "Averages for bit=1"
+    print "Red:",mean(P)
+    print "NRe:",mean(M)
+    print "Averages for bit=0"
+    print "Red:",mean(PT)
+    print "NRe:",mean(MT)
 
-      # print variance([PT[x] - D[x] for x in range(len(D))]) / variance(PT)
-    # print variance([PT[x] - D[x] for x in range(len(D))])
-    # print "\n"
-    # print variance(P)/variance(B)
-    # print variance(PT)/variance(D)
+    pm = mean(P) - mean(M)
+    ptmt = mean(PT) - mean(MT)
 
-
-    print "My1:",mean(B)
-    print "My2:",mean(G)
-    print "My3:",mean(D)
-    print "My4:",mean(H)
-
-
-    print "higher better"
-        # print pearsonr (A,E)
-        # print pearsonr (C,F)
-    print pearsonr (P,B)
-    print pearsonr (PT,D)
-    # print np.corrcoef(A,B)[0][0]
-    # print np.corrcoef(A,B)[1][1]
-    # print np.corrcoef(C,D)[0][0]
-    # print np.corrcoef(C,D)[1][1]
-
-    if mean(P) - mean(M) > mean(PT) - mean(MT) :
-    # if mean(B) + mean(P) - mean(G) - mean(M) > mean(D) + mean(PT) - mean(H) - mean(MT) :
+    if pm > ptmt :
       keyGuess += '1'
       results = results1
       reductionNo = timingme1
@@ -303,115 +180,62 @@ def attack( guess, N, exp ) :
       keyGuess += '0'
       results = results2
       reductionNo = timingme2
-    # print '1'+'1011'+keyGuess
-    print keyGuess
+    print "Partial key: ", keyGuess
 
-
-    # print P
-    # print B
-    # print PT
-    # print D
-
-    print "\n"
-    # print reductionTable1
-    # print reductionTable2
     reductionTable1=[]
     reductionTable2=[]
     timingme1=[]
     timingme2=[]
     results1 = []
     results2 = []
-    # myTime = []
-    # myTime1 = []
-    # myTime2 = []
+
+    # if time with reductions are less than time without than we are done
+    if keyGuess[-1] == '1' and pm < 0 :
+      break
+    else if keyGuess[-1] == '0' and ptmt < 0 :
+      break
+
+  # return key guess without last bit which must be guessed
+  return keyGuess[:-1]
 
 
-
-
-
-
-
-    # for i in guess :
-    #   reductionTable.append( binExp( i, '1000'+60*'0', N, j ) )
-    # # print zip(reductionTable, time)
-    # tuples = zip(reductionTable, time)
-    # P, M = [], []
-    # for k in tuples:
-    #   if k[0] :
-    #     P.append(k[1])
-    #   else :
-    #     M.append(k[1])
-    # # print mean(P)
-    # # print mean(M)
-    # # print time
-    # print "nogoo"
-    # print abs(mean(P)-mean(M))
-    # average.append(abs(mean(P)-mean(M)))
-    # print reductionTable
-    # reductionTable=[]
-
-
-
-
-
-
-
-
-
-    # time = []
-  # print mean(average)
-  # return "NO Key!"
-
-
-# perform limb operation with rest
+# perform limb operation with rest --- carry
 def rest( x ) :
-  # print "Cary in: ", x
   # carry
   C = x%base
   i = (x-C)/base
   if (x-C) % base != 0 :
-    print "Carrying"
-  # print "Cary out: ", i, "    ", C
+    print "Carrying error!"
   if i*2**64 + C != x or i >= 2**64 :
-    print "goczja"
+    print "Base error!"
   return(i, C)
 
-# create limb with 0's for given length
+# create limb filled with 0s of given length
 def nullLimb( size ) :
   t = []
   for i in range( size ) :
     t.append(0)
   return t
 
-# compute np
+# compute N'
 def nprime( N ) :
   t = 1
   for i in range( wordSize - 1 ) :
     t = ( t * t * N ) % base
   return ( -1 * t ) % base
 
-# create limb representation of given number
-# index 0 is least significant
+# create limb representation of given number --- index 0 is least significant
 def limb( a ) :
   b = "{0:b}".format(a)
-
   # padding
   if len(b) != bits :
     b = (bits-len(b))*'0' + b
-
   if len(b) != bits :
     print "Limbing error"
-
   t = []
   for i in range(inputSize) :
     t.append(long(b[i*wordSize : (i+1)*wordSize], 2))
-
-
-  # print "Limbo: ", t
   return t
-
-
-
 
 # calculate rho^2 to change into Montgomery
 def rhosq(N) :
@@ -423,49 +247,30 @@ def rhosq(N) :
 # Section 2.1 binary exponentiation | g ** r
 #   *j* denote bit that we are attacking
 def binExp( gr, r, N, j, res, g, reno  ) :
+  # make local copy of variables
   result = res
   redno = reno
-  # redno = 0
-  # compute mot representation of 1
-  # result = (1* base**inputSize)%N
-  # (red, result) = CIOSMM(1, rhosq(N), N)
-  # print red
 
-  # compute mot representation of base
-  # g = (gr* base**inputSize)%N
-  # (red, g) = CIOSMM(gr, rhosq(N), N)
-  # print red
-
-  for n, i in enumerate( r ) : # --- start from most significant bit --- r[::-1]
-
-    # print "Round: ", n
-
-    # print "Comp1: ", result
+  for n, i in enumerate( r ) : # --- start from most significant bit
+    # Square step
     (red, result) = CIOSMM( result, result, N )#result *= result % N
     if red :
       redno +=1
-    # print "Result: ", result
 
+    # Multiplication step
     if i == '1' :
       (red, result) = CIOSMM( result, g, N )#result *= g % N
       if red :
         redno +=1
 
-    # attack square
+    # Attack square in chosen round(chosen bit)
     if j == n :
-      # return whether reduction was done or not
       (bol, null) = CIOSMM( result, result, N )
-      # if bol :
-        # redno +=1
-      return (bol,redno, result)
+      # return whether reduction was done or not
+      return (bol, redno, result)
 
-  # print result
-  # (red, result) = CIOSMM( result, 1, N )#result *= g % N
-  # if red :
-    # redno +=1
-  # print result
-
-  # return (red, redno)
+  #If missed loop return error
+  return (-1, -1)
 
 
 # mock the CIOS Montgomery Multiplication with w= 64 | b =  2 ** 64
@@ -473,8 +278,7 @@ def binExp( gr, r, N, j, res, g, reno  ) :
 def CIOSMM( x, y, N ) :
   # *s* is the number of words in *x* and *y*
   if x >= 2**1024-1 or y >= 2**1024-1:
-    print "SHOUT"
-  # r = base ** inputSize
+    print "CIOS-MM: operand out of range!"
   a = limb( x )[::-1]
   b = limb( y )[::-1]
   n = limb( N )[::-1]
@@ -483,11 +287,6 @@ def CIOSMM( x, y, N ) :
 
   for i in range( inputSize ) :
     C = 0
-    
-    # print t
-    # print b
-    # print "\n\n"
-
     for j in range( inputSize ) :
       (C, S) = rest( t[j] + a[j]*b[i] + C )
       t[j] = S
@@ -506,14 +305,10 @@ def CIOSMM( x, y, N ) :
     # (C, S) = rest( t[inputSize] + C )
     # t[inputSize] = S
     # t[inputSize+1] = t[inputSize+1] + C
-
-    # if t[0] != 0:
-    #   print "Monti error!"
-
     # for j in range(inputSize+1) :
     #   t[j] = t[j+1]
-    # print t
-    # improvement
+
+    # improvement ^|^
     (C,S) = rest( t[0] + m*n[0] )
     for j in range(1,inputSize) :
       (C,S) = rest( t[j] + m*n[j] + C )
@@ -521,15 +316,12 @@ def CIOSMM( x, y, N ) :
     (C,S) = rest( t[inputSize] + C )
     t[inputSize-1] = S
     t[inputSize] = t[inputSize+1] + C
-    # print t
-    # print "-----"
 
   # REDUCTION
-  # print t
   out = 0
   for i in range(inputSize+1) :
     out += t[i]* base**i
-
+  # Reduction ?
   if out >= N :
     return (True, out-N)
   else :
@@ -548,32 +340,29 @@ if ( __name__ == "__main__" ) :
   for i, k in enumerate( publicKey ) :
     publicKey[i] = long( k, 16 )
 
+  # get modulus
+  modul = publicKey[0]
+
   # put exponent to binary string
   exp = "{0:b}".format( publicKey[1] )
 
-  # generate 1024-bit strings for attacks --- #64
+  # generate 1024-bit strings for attacks
   i = 0
   attacksE = []
   while( i < AttacksNo ) :
-
     rr = random.getrandbits( 1024 )
-    # take first 512 bits from modulus
-    # rr = long("{0:b}".format(publicKey[0])[:bits/2]+"{0:b}".format(random.getrandbits( bits/2 )), 2)
-    # rr = long("{0:b}".format(publicKey[0])[:bits*63/64]+"{0:b}".format(random.getrandbits( bits/64 )), 2)
-    # rr = random.getrandbits( 1 )
-
     # check whether are less than N
-    if rr < publicKey[0] and rr%2==0 :
+    if rr < modul :
       attacksE.append( rr )
       i += 1
 
-  # encrypt them with e and N
+  # encrypt them with e and N --- testing
   attacks =[]
   # for i in attacksE :
-    # attacks.append( encrypt( i, exp, publicKey[0] ) )
+    # attacks.append( encrypt( i, exp, modul ) )
   attacks = attacksE
 
-  print "Attacks calculated.\nStarting interaction."
+  print "Attacks Generated.\nStarting interaction."
 
   # implement algorithm from paper
 
@@ -586,11 +375,34 @@ if ( __name__ == "__main__" ) :
   target_out = target.stdout
   target_in  = target.stdin
 
-  # attack
-  # assume exponent is all 1's
-  # d is assumed to have 64 bits
+  # d exponent for testing purposes --- testing
   attackExp = '1010'+20*'0'+20*'1'+19*'0'+'1'
 
-  # secretKey = 
-  attack( attacks, publicKey[0], attackExp )
-  # print "%X" % ( secretKey )
+  # generate random message --- encrypt --- decrypt --- comparison purpose
+  while True :
+    mess = random.getrandbits( 1024 )
+    if mess < modul :
+      break
+  # encrypt
+  cipher = encrypt(mess, exp, modul)
+  # decrypt with device for comparison
+  target_in.write( "%X\n" % ( cipher ) ) ; target_in.flush()
+  # Receive time from attack target.
+  ignore = int( target_out.readline().strip() )
+  # Receive decyphered message from attack target.
+  decipher = long( target_out.readline().strip(), 16)
+
+  # attack until good key is found
+  while True :
+    secretKey = attack( attacks, modul, attackExp )
+    if decipher == encrypt(cipher, secretKey+'1', modul):
+      LSB = '1'
+      break
+    else if decipher == encrypt(cipher, secretKey+'0', modul):
+      LSB = '0'
+      break
+    else :
+      # if does not fit --- try again
+      print "Failed to recover key --- trying again!"
+      pass
+  print "Secret key in hex format: %X" % ( long(secretKey+LSB, 2) )
