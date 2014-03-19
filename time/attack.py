@@ -180,6 +180,7 @@ def attack( guess, N, exp ) :
       results = results2
       reductionNo = timingme2
     print "Partial key: ", keyGuess
+    print "\n"
 
     reductionTable1=[]
     reductionTable2=[]
@@ -404,4 +405,5 @@ if ( __name__ == "__main__" ) :
       # if does not fit --- try again
       print "Failed to recover key --- trying again!"
       pass
+  print "Secret key in bin format: ", secretKey+LSB    
   print "Secret key in hex format: %X" % ( long(secretKey+LSB, 2) )
