@@ -16,7 +16,7 @@
 So that we can calibrate and improve the assignment in the future, give us
 a rough idea how long (in hours) you spent on it *in total*:
 
-effort : [...] hours
+effort : [65] hours
 
 -------------------------------------------------------------------------------
 
@@ -54,7 +54,7 @@ the style or efficiency of a solution.
               - Robustness  of attack strategy                       ( 20%)
               - Correctness of attack strategy                       ( 60%)
 
-                Attack result : [...]
+                Attack result : [1B7FEAABD5977A61]
 
 [?] Stage 3 : an attack based on an injected fault
 
