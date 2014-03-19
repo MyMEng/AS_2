@@ -2,12 +2,9 @@
 
 import sys, subprocess, random
 from numpy import mean
-import numpy as np
-from numpy import mean
-from itertools import imap
 
 # number of attacks
-AttacksNo = 20000
+AttacksNo = 4000
 wordSize = 64
 base = 2 ** wordSize
 # input is 1024 bits that is 16 limbs in base 2 ** 64
@@ -107,6 +104,8 @@ def attack( guess, N, exp ) :
   for x, i in enumerate(guess) :
     (nm,reductionNo[x],results[x] ) = binExp( i, '1', N, 0, results[x], exps[x], reductionNo[x] )
 
+  print "Start knocking!"
+
   for j in range(1,len(exp)-1) : # last bit must be guessed
     for x, i in enumerate(guess) :
       # try guess 1
@@ -192,7 +191,7 @@ def attack( guess, N, exp ) :
     # if time with reductions are less than time without than we are done
     if keyGuess[-1] == '1' and pm < 0 :
       break
-    else if keyGuess[-1] == '0' and ptmt < 0 :
+    elif keyGuess[-1] == '0' and ptmt < 0 :
       break
 
   # return key guess without last bit which must be guessed
@@ -398,7 +397,7 @@ if ( __name__ == "__main__" ) :
     if decipher == encrypt(cipher, secretKey+'1', modul):
       LSB = '1'
       break
-    else if decipher == encrypt(cipher, secretKey+'0', modul):
+    elif decipher == encrypt(cipher, secretKey+'0', modul):
       LSB = '0'
       break
     else :
