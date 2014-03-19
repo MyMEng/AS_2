@@ -1,52 +1,30 @@
 import sys, subprocess, random
-from numpy import mean
+from math import log
+# from numpy import mean
 # from time import clock
-import numpy as np
-from numpy import mean
-from itertools import imap
+# import numpy as np
+# from numpy import mean
+# from itertools import imap
 
-def pearsonr(x, y):
-  # Assume len(x) == len(y)
-  n = len(x)
-  sum_x = float(sum(x))
-  sum_y = float(sum(y))
-  sum_x_sq = sum(map(lambda x: pow(x, 2), x))
-  sum_y_sq = sum(map(lambda x: pow(x, 2), y))
-  psum = sum(imap(lambda x, y: x * y, x, y))
-  num = psum - (sum_x * sum_y/n)
-  den = pow((sum_x_sq - pow(sum_x, 2) / n) * (sum_y_sq - pow(sum_y, 2) / n), 0.5)
-  if den == 0: return 0
-  return num / den
+# Define constants
+SUCCESS       = 0
+ERROR1        = 1
+ERROR2        = 2
+P_OUTOFRANGE  = 3
+C_OUTOFRANGE  = 4
+M_LENGTH      = 5
+C_LENGTH      = 6
+CH_LENGTH     = 7
+OTHER         = 8
 
-
-def variance(li):
-    avg = mean(li)
-    sq_diff=0
-    for elem in li:
-        sq_diff += (elem - avg)**2
-    return float(sq_diff) / float(len(li))
-
-
-
-############# code from Internet
-def egcd(a, b):
-    if a == 0:
-        return (b, 0, 1)
-    else:
-        g, y, x = egcd(b % a, a)
-        return (g, x - (b // a) * y, y)
-
-def modinv(a, m):
-    g, x, y = egcd(a, m)
-    if g != 1:
-        raise Exception('modular inverse does not exist')
-    else:
-        return x % m
-############# code from Internet
+# Define public key
+modulus = 0
+public  = 0
+cipher  = 0
 
 
 # number of attacks
-AttacksNo = 20000
+AttacksNo = 15000
 wordSize = 64
 base = 2 ** wordSize
 # input is 1024 bits that is 16 limbs in base 2 ** 64
@@ -123,7 +101,7 @@ def attack( guess, N, exp ) :
 
   # baseline = interactR([1], N, exp)
   # time = interactR(guess, N, exp)
-                                      # time[:] = [x - baseline[0] for x in time]
+  time[:] = [x - baseline[0] for x in time]
   # Et = mean(time)
   # delete = []
   # for i, t in enumerate(time) :
@@ -138,7 +116,7 @@ def attack( guess, N, exp ) :
     # del guess[i]
 
   # give number of reductions
-                                        # time[:] = [x / ReductionT for x in time]
+  time[:] = [x / ReductionT for x in time]
 
   (red, result) = CIOSMM(1, rhosq(N), N)
   results = [result for i in range(AttacksNo)]
@@ -536,6 +514,16 @@ def CIOSMM( x, y, N ) :
     return (False, out)
 
 
+# change integer into octet where *leng* is number of octets
+def octets( strin, leng ) :
+  binin = "{0:b}".format(strin)
+  binin = binin.zfill(leng*8)[::-1] # little endian??
+  octout = ""
+  for i in range(leng*2) :
+    octout += "%X" % ( int(binin[i*4 : (i+1)*4], 2) )
+  return octout
+
+
 if ( __name__ == "__main__" ) :
 
   # Get the public key parameters
@@ -545,39 +533,31 @@ if ( __name__ == "__main__" ) :
         publicKey.append( line[:-1] )
 
   # change hex strings into int
-  for i, k in enumerate( publicKey ) :
-    publicKey[i] = long( k, 16 )
+  global modulus = long( publicKey[0], 16 )
+  global public = long( publicKey[1], 16 )
+  global cipher = long( publicKey[2], 16 )
 
-  # put exponent to binary string
-  exp = "{0:b}".format( publicKey[1] )
+  # Get UID for attak
+  UIDcheck = "id -u "+ sys.argv[2][:-7]
+  idcheck = subprocess.Popen( UIDcheck, stdout=subprocess.PIPE, shell=True)
+  (out, err) = idcheck.communicate()
+  if err!=None:
+    print "Couldn't find UID."
+    print err
+    exit()
+  UID = int(out)
 
-  # generate 1024-bit strings for attacks --- #64
-  i = 0
-  attacksE = []
-  while( i < AttacksNo ) :
+  m = "" + octets(UID, 4) # ????
 
-    rr = random.getrandbits( 1024 )
-    # take first 512 bits from modulus
-    # rr = long("{0:b}".format(publicKey[0])[:bits/2]+"{0:b}".format(random.getrandbits( bits/2 )), 2)
-    # rr = long("{0:b}".format(publicKey[0])[:bits*63/64]+"{0:b}".format(random.getrandbits( bits/64 )), 2)
-    # rr = random.getrandbits( 1 )
+  # Calculate constants
+  k = 
+  B = 
 
-    # check whether are less than N
-    if rr < publicKey[0] and rr%2==0 :
-      attacksE.append( rr )
-      i += 1
-
-  # encrypt them with e and N
-  attacks =[]
-  # for i in attacksE :
-    # attacks.append( encrypt( i, exp, publicKey[0] ) )
-  attacks = attacksE
-
-  print "Attacks calculated.\nStarting interaction."
+  # Step 1
 
   # implement algorithm from paper
 
-  # Produce a sub-process representing the attack target.
+  # # Produce a sub-process representing the attack target.
   target = subprocess.Popen( args   = sys.argv[ 1 ],
                              stdout = subprocess.PIPE, 
                              stdin  = subprocess.PIPE )
@@ -585,12 +565,3 @@ if ( __name__ == "__main__" ) :
   # Construct handles to attack target standard input and output.
   target_out = target.stdout
   target_in  = target.stdin
-
-  # attack
-  # assume exponent is all 1's
-  # d is assumed to have 64 bits
-  attackExp = '1010'+20*'0'+20*'1'+19*'0'+'1'
-
-  # secretKey = 
-  attack( attacks, publicKey[0], attackExp )
-  # print "%X" % ( secretKey )
