@@ -4,7 +4,7 @@ import sys, subprocess, random
 from numpy import mean
 
 # number of attacks
-AttacksNo = 5000
+AttacksNo = 8000
 wordSize = 64
 base = 2 ** wordSize
 # input is 1024 bits that is 16 limbs in base 2 ** 64
