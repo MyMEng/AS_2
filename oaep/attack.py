@@ -14,21 +14,8 @@ CH_LENGTH     = 7
 OTHER         = 8
 
 # Define public key
-modulus, public, cipher = 0,0,0#None, None, None
-
-wordSize = 64
-base = 2 ** wordSize
+modulus, public, cipher = 0, 0, 0 # None, None, None
 inputSize = 256
-
-
-# change integer into octet where *leng* is number of octets
-def octets( strin, leng ) :
-  binin = "{0:b}".format(strin)
-  binin = binin.zfill(leng*8)[::-1] # little endian??
-  octout = ""
-  for i in range(leng*2) :
-    octout += "%X" % ( int(binin[i*4 : (i+1)*4], 2) )
-  return octout
 
 def interact( G ) :
   # Send      G      to   attack target --- G must be 256 characters HEX.
@@ -53,7 +40,8 @@ def manger1() :
 
   # do we get what we want?
   if response != ERROR1 :
-    print "Manger1, couldn't find right value; error#: ", response, " f_1: ", f_1
+    print ( "Manger1, couldn't find right value; error#: ", response, " f_1: ",
+      f_1 )
 
   # if all good give back f_1
   return f_1
@@ -85,7 +73,8 @@ def manger2(f_1, B) :
 
   # do we get what we want?
   if response != ERROR2 :
-    print "Manger2, couldn't find right value; error#: ", response, " f_2: ", f_2
+    print ( "Manger2, couldn't find right value; error#: ", response, " f_2: ",
+      f_2 )
 
   # if all good give back f_2
   return f_2
@@ -116,7 +105,7 @@ def manger3(f_2, B) :
   return ( "%X" % m_min ).zfill( inputSize )
 
 # EME-OAEP decoding
-def magic(f_3) :
+def magic(f_3, k) :
   # a)
   # Define null label
   label = ''
@@ -127,7 +116,38 @@ def magic(f_3) :
   # b)
   Y, maskedSeed, maskedDB = f_3[:2], f_3[2:2*(hLen+1)], f_3[2*(hLen+1):]
 
+  # c)
+  seedMask = MGF1( maskedDB, hLen )
 
+  # d)
+  seed = '%X' % ( int(maskedSeed, 16) ^ int(seedMask, 16) )
+
+  # e)
+  dbMask = MGF1( seed, k-hLen-1 )
+
+  # f)
+  DB = '%X' % ( int(maskedDB, 16) ^ int(dbMask, 16) )
+
+  # g)
+  OxOI_n = DB.find('01', 2*hLen)
+  lHash_p, PS, OxOI, M = ( DB[:2*hLen], DB[2*hLen:OxOI_n], DB[OxOI_n:OxOI_n+2],
+    DB[OxOI_n+2:] )
+
+  if OxOI != '01' or OxOI_n == -1 :
+    print "Decryption error!"
+    print "Serious issue with decoding message! ", OxOI, " is not 0x01 !"
+    print "Actual value: ", OxOI
+    exit()
+  if int(lHash_p, 16) != int(lHash, 16) :
+    print "Decryption error!"
+    print "lHashes are not equal!"
+    print "lHash: ", lHash, "\nlHash': ", lHash_p
+    exit()
+  if int(Y, 16) != 0 :
+    print "Decryption error!"
+    print "Y is not 0; Y is: ", Y
+
+  return M
 
 # Section 4.1
 def I2OSP(x, xLen) :
@@ -168,6 +188,15 @@ def MGF1(mgfSeed, maskLen) :
 
   # 4
   return T[:2*maskLen]
+
+# change integer into octet where *leng* is number of octets
+def octets( strin, leng ) :
+  binin = "{0:b}".format(strin)
+  binin = binin.zfill(leng*8)[::-1] # little endian??
+  octout = ""
+  for i in range(leng*2) :
+    octout += "%X" % ( int(binin[i*4 : (i+1)*4], 2) )
+  return octout
 
 if ( __name__ == "__main__" ) :
   # give access to globals
@@ -223,5 +252,8 @@ if ( __name__ == "__main__" ) :
   f3 = manger3(f2, B)
   print "Progress check 3!"
   print "f_3: ", f3
-  message = magic(f3)
-  print "Recovered message:\n", message
+  message = magic(f3, k)
+  print "Recovered message: ", message
+
+  # check validity of message for UID
+
