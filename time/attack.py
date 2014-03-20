@@ -4,7 +4,7 @@ import sys, subprocess, random
 from numpy import mean
 
 # number of attacks
-AttacksNo = 4000
+AttacksNo = 5000
 wordSize = 64
 base = 2 ** wordSize
 # input is 1024 bits that is 16 limbs in base 2 ** 64
@@ -102,7 +102,7 @@ def attack( guess, N, exp ) :
   keyGuess = '1'
   # time[:] = [x - MultiplicationT for x in time]
   for x, i in enumerate(guess) :
-    (nm,reductionNo[x],results[x] ) = binExp( i, '1', N, 0, results[x], exps[x], reductionNo[x] )
+    (nm,reductionNo[x],results[x], Non, Non, Non ) = binExp( i, '1', N, 0, results[x], exps[x], reductionNo[x] )
 
   print "Start knocking!"
 
@@ -119,14 +119,14 @@ def attack( guess, N, exp ) :
       results1.append(tupl[2])
 
       # try guess 0
-      tupl = binExp( i, '0', N, 0, results[x], exps[x], reductionNo[x] )
-      reductionTable2.append( tupl[0] )
-      if tupl[0]:
-        niu = tupl[1] + 1
+      # tupl = binExp( i, '0', N, 0, results[x], exps[x], reductionNo[x] )
+      reductionTable2.append( tupl[3] )
+      if tupl[3]:
+        niu = tupl[4] + 1
       else :
-        niu = tupl[1]
+        niu = tupl[4]
       timingme2.append(niu)
-      results2.append(tupl[2])
+      results2.append(tupl[5])
 
     # create tuples for easier handling
     tuples1 = zip(reductionTable1, time, timingme1)
@@ -257,17 +257,22 @@ def binExp( gr, r, N, j, res, g, reno  ) :
     if red :
       redno +=1
 
+    # result redno is without additional multiplication step
+    # variables for reduction
+    resultR, rednoR = result, redno
+
     # Multiplication step
-    if i == '1' :
-      (red, result) = CIOSMM( result, g, N )#result *= g % N
-      if red :
-        redno +=1
+    # if i == '1' :
+    (red, resultR) = CIOSMM( resultR, g, N )#result *= g % N
+    if red :
+      rednoR +=1
 
     # Attack square in chosen round(chosen bit)
-    if j == n :
-      (bol, null) = CIOSMM( result, result, N )
-      # return whether reduction was done or not
-      return (bol, redno, result)
+    # if j == n :
+    (bol, null) = CIOSMM( result, result, N )
+    (bolR, null) = CIOSMM( resultR, resultR, N )
+    # return whether reduction was done or not
+    return (bolR, rednoR, resultR, bol, redno, result)
 
   #If missed loop return error
   return (-1, -1)

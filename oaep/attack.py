@@ -1,5 +1,6 @@
+#! /usr/bin/python
 import sys, subprocess, random
-from math import log
+# from math import log
 # from numpy import mean
 # from time import clock
 # import numpy as np
@@ -18,19 +19,16 @@ CH_LENGTH     = 7
 OTHER         = 8
 
 # Define public key
-modulus = 0
-public  = 0
-cipher  = 0
+modulus, public, cipher = None, None, None
 
-
-# number of attacks
-AttacksNo = 15000
 wordSize = 64
 base = 2 ** wordSize
+inputSize = 256
+
+
 # input is 1024 bits that is 16 limbs in base 2 ** 64
-bits = 1024
-inputSize = 16
-keySize = 64
+# bits = 1024
+# inputSize = 16
 
 ####
 # Define parameters to distinguish attacks --- tuning-in
@@ -45,49 +43,6 @@ CoreT = 512
 MultiplicationT = 512
 ReductionT = 16#32
 ####
-
-def interact( G ) :
-
-  # start recovering by testing key {1,0,-,-,-,-,-,-}
-  #                                 {1,1,-,-,-,-,-,-}
-  #   and so on for each cypher-text and remember whether reduction occur or not
-  # and measuring time for decryption of each cypher-text i
-
-  t = []
-  # Send      G      to   attack target.
-  for i in G :
-    target_in.write( "%X\n" % ( i ) ) ; target_in.flush()
-    # Receive time from attack target.
-    t.append( int( target_out.readline().strip() ) )
-    target_out.readline().strip()
-    # print "Timing: ", i, " done."
-  
-  return t
-
-def interactR( G, N, d ) :
-  t = []
-  # Send      G      to   attack target.
-  for i in G :
-    target_in.write( "%X\n" % ( i ) ) ; target_in.flush()
-    target_in.write( "%X\n" % ( N ) ) ; target_in.flush()
-    target_in.write( "%X\n" % ( long(d, 2) ) ) ; target_in.flush()
-    # Receive time from attack target.
-    # time that is left is reductions in multiplications + squares + reductions in squares
-    t.append( int( target_out.readline().strip() )  )
-    target_out.readline().strip()
-  return t
-
-def encrypt( base, exponent, modulus ) :
-  a = 1
-  for i in exponent :
-    a *= a
-    if i == '1' :
-      a *= base
-    a = a % modulus
-  return a
-
-
-
 
 # d is assumed to have 64 bits
 def attack( guess, N, exp ) :
@@ -391,128 +346,6 @@ def limb( a ) :
 
 
 
-# calculate rho^2 to change into Montgomery
-def rhosq(N) :
-    t = 1
-    for i in range(2*inputSize*wordSize):
-        t = (t+t)%N
-    return t
-
-# Section 2.1 binary exponentiation | g ** r
-#   *j* denote bit that we are attacking
-def binExp( gr, r, N, j, res, g, reno  ) :
-  result = res
-  redno = reno
-  # redno = 0
-  # compute mot representation of 1
-  # result = (1* base**inputSize)%N
-  # (red, result) = CIOSMM(1, rhosq(N), N)
-  # print red
-
-  # compute mot representation of base
-  # g = (gr* base**inputSize)%N
-  # (red, g) = CIOSMM(gr, rhosq(N), N)
-  # print red
-
-  for n, i in enumerate( r ) : # --- start from most significant bit --- r[::-1]
-
-    # print "Round: ", n
-
-    # print "Comp1: ", result
-    (red, result) = CIOSMM( result, result, N )#result *= result % N
-    if red :
-      redno +=1
-    # print "Result: ", result
-
-    if i == '1' :
-      (red, result) = CIOSMM( result, g, N )#result *= g % N
-      if red :
-        redno +=1
-
-    # attack square
-    if j == n :
-      # return whether reduction was done or not
-      (bol, null) = CIOSMM( result, result, N )
-      # if bol :
-        # redno +=1
-      return (bol,redno, result)
-
-  # print result
-  # (red, result) = CIOSMM( result, 1, N )#result *= g % N
-  # if red :
-    # redno +=1
-  # print result
-
-  # return (red, redno)
-
-
-# mock the CIOS Montgomery Multiplication with w= 64 | b =  2 ** 64
-#   return whether reduction was done or not
-def CIOSMM( x, y, N ) :
-  # *s* is the number of words in *x* and *y*
-  if x >= 2**1024-1 or y >= 2**1024-1:
-    print "SHOUT"
-  # r = base ** inputSize
-  a = limb( x )[::-1]
-  b = limb( y )[::-1]
-  n = limb( N )[::-1]
-  t = nullLimb(inputSize+2)
-  np0 = limb(nprime(N))[-1]
-
-  for i in range( inputSize ) :
-    C = 0
-    
-    # print t
-    # print b
-    # print "\n\n"
-
-    for j in range( inputSize ) :
-      (C, S) = rest( t[j] + a[j]*b[i] + C )
-      t[j] = S
-    (C, S) = rest( t[inputSize] + C )
-    t[inputSize] = S
-    t[inputSize + 1] = C
-
-
-    C = 0
-    m = ( t[0]*np0 ) % base
-
-
-    # for j in range( inputSize ) :
-    #   (C, S) = rest( t[j] + m*n[j] + C )
-    #   t[j] = S
-    # (C, S) = rest( t[inputSize] + C )
-    # t[inputSize] = S
-    # t[inputSize+1] = t[inputSize+1] + C
-
-    # if t[0] != 0:
-    #   print "Monti error!"
-
-    # for j in range(inputSize+1) :
-    #   t[j] = t[j+1]
-    # print t
-    # improvement
-    (C,S) = rest( t[0] + m*n[0] )
-    for j in range(1,inputSize) :
-      (C,S) = rest( t[j] + m*n[j] + C )
-      t[j-1] = S
-    (C,S) = rest( t[inputSize] + C )
-    t[inputSize-1] = S
-    t[inputSize] = t[inputSize+1] + C
-    # print t
-    # print "-----"
-
-  # REDUCTION
-  # print t
-  out = 0
-  for i in range(inputSize+1) :
-    out += t[i]* base**i
-
-  if out >= N :
-    return (True, out-N)
-  else :
-    return (False, out)
-
 
 # change integer into octet where *leng* is number of octets
 def octets( strin, leng ) :
@@ -523,8 +356,44 @@ def octets( strin, leng ) :
     octout += "%X" % ( int(binin[i*4 : (i+1)*4], 2) )
   return octout
 
+def interact( G ) :
+  # Send      G      to   attack target --- G must be 256 characters HEX.
+  target_in.write( "%s\n" % ( "%X" % G ).zfill(inputSize) ) ; target_in.flush()
+  # Receive time from attack target.
+  err = int( target_out.readline().strip() )
+  return err
+
+def generateAttack( f ) :
+  return ( pow( f, public, modulus ) * cipher ) % modulus
+
+def manger1() :
+  # 1.1
+  f_1 = 2
+  # 1.2
+  response = interact( generateAttack( f_1 ) )
+
+  # 1.3a
+  while response == ERROR2 :
+    f_1 *= 2
+    response = interact( generateAttack( f_1 ) )
+
+  # do we get what we want?
+  if response != ERROR1 :
+    print "Manger1, couldn't find right value; error#: ", response, " f_1: ", f_1
+
+  # if all good give back f_1
+  return f_1
+
+def manger2(f_1, k, B) :
+  # 2.1
+  f_2 = ( f_1 / 2 ) * 
+
 
 if ( __name__ == "__main__" ) :
+  # give access to globals
+  global modulus
+  global public
+  global cipher
 
   # Get the public key parameters
   publicKey = []
@@ -533,9 +402,18 @@ if ( __name__ == "__main__" ) :
         publicKey.append( line[:-1] )
 
   # change hex strings into int
-  global modulus = long( publicKey[0], 16 )
-  global public = long( publicKey[1], 16 )
-  global cipher = long( publicKey[2], 16 )
+  modulus = long( publicKey[0], 16 )
+  public  = long( publicKey[1], 16 )
+  cipher  = long( publicKey[2], 16 )
+
+  # # Produce a sub-process representing the attack target.
+  target = subprocess.Popen( args   = sys.argv[ 1 ],
+                             stdout = subprocess.PIPE, 
+                             stdin  = subprocess.PIPE )
+
+  # Construct handles to attack target standard input and output.
+  target_out = target.stdout
+  target_in  = target.stdin
 
   # Get UID for attak
   UIDcheck = "id -u "+ sys.argv[2][:-7]
@@ -549,19 +427,16 @@ if ( __name__ == "__main__" ) :
 
   m = "" + octets(UID, 4) # ????
 
-  # Calculate constants
-  k = 
-  B = 
+  # Calculate constants k and B
+  # ceil( log_{256} N ) = # of octets in N = ( # of hex in N )/2 | N = public[0]
+  k = len( publicKey[0] ) / 2
+  B = 2 ** (8 * (k-1))
 
   # Step 1
-
-  # implement algorithm from paper
-
-  # # Produce a sub-process representing the attack target.
-  target = subprocess.Popen( args   = sys.argv[ 1 ],
-                             stdout = subprocess.PIPE, 
-                             stdin  = subprocess.PIPE )
-
-  # Construct handles to attack target standard input and output.
-  target_out = target.stdout
-  target_in  = target.stdin
+  f1 = manger1()
+  print "Progress check!"
+  print "f_1: ", f1
+  # Step 2
+  f2 = manger2(f1, k, B)
+  print "Progress check!"
+  print "f_2: ", f2
