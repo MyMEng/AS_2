@@ -46,7 +46,8 @@ the style or efficiency of a solution.
               - Successfully reversed RSADP    primitive             ( 50%)
               - Successfully reversed EME-OAEP primitive             ( 50%)
 
-                Attack result : [...]
+                Attack result : [37260000441853B0A1FBF596F637021013D780165FCDF6194476387EAEEF512012753A68A4AF92AD36421C87D9D09628EE41
+                ]
 
 [?] Stage 2 : an attack based on execution time
 
@@ -54,7 +55,9 @@ the style or efficiency of a solution.
               - Robustness  of attack strategy                       ( 20%)
               - Correctness of attack strategy                       ( 60%)
 
-                Attack result : [1B7FEAABD5977A61]
+                Attack result : [
+                1B7FEAABD5977A61
+                ]
 
 [?] Stage 3 : an attack based on an injected fault
 
@@ -87,4 +90,4 @@ source code) should go here:
 
 [...]
 
--------------------------------------------------------------------------------
+--------------------------------------------------------------------

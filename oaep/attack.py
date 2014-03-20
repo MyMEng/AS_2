@@ -2,7 +2,7 @@
 import sys, subprocess, random
 from hashlib import sha1
 
-# Define constants
+# Define error codes
 SUCCESS       = 0
 ERROR1        = 1
 ERROR2        = 2
@@ -12,9 +12,7 @@ M_LENGTH      = 5
 C_LENGTH      = 6
 CH_LENGTH     = 7
 OTHER         = 8
-
-# Define public key
-modulus, public, cipher = 0, 0, 0 # None, None, None
+# Define constants
 inputSize = 256
 UIDnumber = 4
 
@@ -199,8 +197,8 @@ def UIDdecode( strin, leng ) :
   return t
 
 if ( __name__ == "__main__" ) :
-  # give access to globals
-  global modulus, public, cipher
+  # Define public key
+  modulus, public, cipher = 0, 0, 0
 
   # Get the public key parameters
   publicKey = []
