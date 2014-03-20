@@ -1,7 +1,6 @@
 #! /usr/bin/python
 import sys, subprocess, random
-# from math import floor
-# from math import ceil
+from hashlib import sha1
 
 # Define constants
 SUCCESS       = 0
@@ -15,7 +14,7 @@ CH_LENGTH     = 7
 OTHER         = 8
 
 # Define public key
-modulus, public, cipher = None, None, None
+modulus, public, cipher = 0,0,0#None, None, None
 
 wordSize = 64
 base = 2 ** wordSize
@@ -91,7 +90,7 @@ def manger2(f_1, B) :
   # if all good give back f_2
   return f_2
 
-def manger3(f_2, k, B) :
+def manger3(f_2, B) :
   # 3.1
   m_min = longCeil(modulus, f_2)
   m_max = longFloor( (modulus+B), f_2)
@@ -111,16 +110,68 @@ def manger3(f_2, k, B) :
 
     # check for error
     if m_max<m_min :
-      print "Manger3, couldn't find right value; error#: ", response, " f_2: ",
-        f_2, " m_min: ", m_min, " m_max: ", m_max
+      print ("Manger3, couldn't find right value; error#: ", response, " f_2: ",
+        f_2, " m_min: ", m_min, " m_max: ", m_max)
 
-  return m_max
+  return ( "%X" % m_min ).zfill( inputSize )
+
+# EME-OAEP decoding
+def magic(f_3) :
+  # a)
+  # Define null label
+  label = ''
+  # Get hash of empty label
+  lHash = sha1(label).hexdigest()
+  hLen = sha1(label).digest_size
+
+  # b)
+  Y, maskedSeed, maskedDB = f_3[:2], f_3[2:2*(hLen+1)], f_3[2*(hLen+1):]
+
+
+
+# Section 4.1
+def I2OSP(x, xLen) :
+  # 1
+  if x >= xLen ** inputSize :
+    print "Integer too large!"
+    exit()
+  # 2 --- 256 is 2^8 --- 8-bit --- change to HEX group by 2
+  t = "%X" % x
+  # 3 --- fill with leading zeros --- remember it's in pairs
+  t = t.zfill(2*xLen)
+
+  return t
+
+# Appendix B.2.1
+def MGF1(mgfSeed, maskLen) :
+  # 1
+  if maskLen >= 2**32 :
+    print "Mask too long!"
+    exit()
+
+  # 2
+  T = ''
+  hLen = sha1(T).digest_size
+
+  # 3
+  for counter in range( longCeil(maskLen, hLen) ) :
+    # 3.a
+    C = I2OSP( counter, 4 )
+    # 3.b
+    hh = sha1( (str(mgfSeed)+C).decode('hex') ).hexdigest()
+    T += hh
+
+  # Check for error
+  if len(T) < 2*maskLen :
+    print "MGF1 error; T to short: ", T
+    exit()
+
+  # 4
+  return T[:2*maskLen]
 
 if ( __name__ == "__main__" ) :
   # give access to globals
-  global modulus
-  global public
-  global cipher
+  global modulus, public, cipher
 
   # Get the public key parameters
   publicKey = []
@@ -153,6 +204,7 @@ if ( __name__ == "__main__" ) :
   UID = int(out)
 
   m = "" + octets(UID, 4) # ????
+  print m
 
   # Calculate constants k and B
   # ceil( log_{256} N ) = # of octets in N = ( # of hex in N )/2 | N = public[0]
@@ -168,6 +220,8 @@ if ( __name__ == "__main__" ) :
   print "Progress check 2!"
   print "f_2: ", f2
   # Step 3
-  f3 = manger3(f2, k, B)
+  f3 = manger3(f2, B)
   print "Progress check 3!"
   print "f_3: ", f3
+  message = magic(f3)
+  print "Recovered message:\n", message

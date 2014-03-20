@@ -4,12 +4,17 @@ import sys, subprocess, random
 from numpy import mean
 
 # number of attacks
-AttacksNo = 8000
+AttacksNo = 4000
 wordSize = 64
 base = 2 ** wordSize
 # input is 1024 bits that is 16 limbs in base 2 ** 64
 bits = 1024
 inputSize = 16
+
+# Globals
+np0 = 0
+N = 0
+n = []
 
 ####
 # Define parameters to distinguish attacks --- tuning-in
@@ -66,6 +71,8 @@ def encrypt( base, exponent, modulus ) :
 #   and so on for each cypher-text and remember whether reduction occurred
 #   measuring time for decryption of each cypher-text
 def attack( guess, N, exp ) :
+  global np0
+  np0 = limb(nprime(N))[-1]
   baseline = interact([1])
   # interact --- get time measurements
   time = interact(guess)
@@ -78,14 +85,21 @@ def attack( guess, N, exp ) :
   # give number of reductions
   # time[:] = [x / ReductionT for x in time]
 
+
+
   # pre-compute 1 in Montgomery representation
-  rsq = rhosq(N)
-  (red, result) = CIOSMM(1, rsq, N)
+  rsq = limb( rhosq(N) )[::-1]
+  one = limb( 1 )[::-1]
+  (red, result) = CIOSMM(one, rsq)#, N)
   results = [result for i in range(AttacksNo)]
   reductionNo = [0 for i in range(AttacksNo)]
   exps = []
+
+  # change guess to limbs
+  guess[:] =  [limb(x)[::-1] for x in guess]
+
   for g in guess :
-    (red, mg) = CIOSMM(g, rsq, N)
+    (red, mg) = CIOSMM(g, rsq)#, N)
     exps.append(mg)
 
   print "All needed values precomputed!"
@@ -253,7 +267,7 @@ def binExp( gr, r, N, j, res, g, reno  ) :
 
   for n, i in enumerate( r ) : # --- start from most significant bit
     # Square step
-    (red, result) = CIOSMM( result, result, N )#result *= result % N
+    (red, result) = CIOSMM( result, result)#, N )#result *= result % N
     if red :
       redno +=1
 
@@ -263,14 +277,14 @@ def binExp( gr, r, N, j, res, g, reno  ) :
 
     # Multiplication step
     # if i == '1' :
-    (red, resultR) = CIOSMM( resultR, g, N )#result *= g % N
+    (red, resultR) = CIOSMM( resultR, g)#, N )#result *= g % N
     if red :
       rednoR +=1
 
     # Attack square in chosen round(chosen bit)
     # if j == n :
-    (bol, null) = CIOSMM( result, result, N )
-    (bolR, null) = CIOSMM( resultR, resultR, N )
+    (bol, null) = CIOSMM( result, result)#, N )
+    (bolR, null) = CIOSMM( resultR, resultR)#, N )
     # return whether reduction was done or not
     return (bolR, rednoR, resultR, bol, redno, result)
 
@@ -280,15 +294,16 @@ def binExp( gr, r, N, j, res, g, reno  ) :
 
 # mock the CIOS Montgomery Multiplication with w= 64 | b =  2 ** 64
 #   return whether reduction was done or not
-def CIOSMM( x, y, N ) :
+# def CIOSMM( x, y, N ) :
+def CIOSMM( a, b ) :
   # *s* is the number of words in *x* and *y*
-  if x >= 2**1024-1 or y >= 2**1024-1:
-    print "CIOS-MM: operand out of range!"
-  a = limb( x )[::-1]
-  b = limb( y )[::-1]
-  n = limb( N )[::-1]
+    # if x >= 2**1024-1 or y >= 2**1024-1:
+      # print "CIOS-MM: operand out of range!"
+    # a = limb( x )[::-1]
+    # b = limb( y )[::-1]
+    # n = limb( N )[::-1]
   t = nullLimb(inputSize+2)
-  np0 = limb(nprime(N))[-1]
+    # np0 = limb(nprime(N))[-1]
 
   for i in range( inputSize ) :
     C = 0
@@ -328,12 +343,13 @@ def CIOSMM( x, y, N ) :
     out += t[i]* base**i
   # Reduction ?
   if out >= N :
-    return (True, out-N)
+    return (True, limb(out-N)[::-1])
   else :
-    return (False, out)
+    return (False, limb(out)[::-1])
 
 
 if ( __name__ == "__main__" ) :
+  global N, n
 
   # Get the public key parameters
   publicKey = []
@@ -347,6 +363,8 @@ if ( __name__ == "__main__" ) :
 
   # get modulus
   modul = publicKey[0]
+  N = modul
+  n = limb( N )[::-1]
 
   # put exponent to binary string
   exp = "{0:b}".format( publicKey[1] )
