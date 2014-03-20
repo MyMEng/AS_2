@@ -16,6 +16,7 @@ OTHER         = 8
 # Define public key
 modulus, public, cipher = 0, 0, 0 # None, None, None
 inputSize = 256
+UIDnumber = 4
 
 def interact( G ) :
   # Send      G      to   attack target --- G must be 256 characters HEX.
@@ -190,13 +191,12 @@ def MGF1(mgfSeed, maskLen) :
   return T[:2*maskLen]
 
 # change integer into octet where *leng* is number of octets
-def octets( strin, leng ) :
-  binin = "{0:b}".format(strin)
-  binin = binin.zfill(leng*8)[::-1] # little endian??
-  octout = ""
-  for i in range(leng*2) :
-    octout += "%X" % ( int(binin[i*4 : (i+1)*4], 2) )
-  return octout
+def UIDdecode( strin, leng ) :
+  hexBig = ( "%X" % strin ).zfill(2*leng)
+  t = ""
+  for i in range(2*leng) :
+    t = hexBig[2*i : 2*(i+1)] + t
+  return t
 
 if ( __name__ == "__main__" ) :
   # give access to globals
@@ -222,7 +222,7 @@ if ( __name__ == "__main__" ) :
   target_out = target.stdout
   target_in  = target.stdin
 
-  # Get UID for attak
+  # Get UID for attack --- assume user name is of the form: ab1234
   UIDcheck = "id -u "+ sys.argv[2][:-7]
   idcheck = subprocess.Popen( UIDcheck, stdout=subprocess.PIPE, shell=True)
   (out, err) = idcheck.communicate()
@@ -231,9 +231,7 @@ if ( __name__ == "__main__" ) :
     print err
     exit()
   UID = int(out)
-
-  m = "" + octets(UID, 4) # ????
-  print m
+  begining = UIDdecode(UID, UIDnumber)
 
   # Calculate constants k and B
   # ceil( log_{256} N ) = # of octets in N = ( # of hex in N )/2 | N = public[0]
@@ -256,4 +254,6 @@ if ( __name__ == "__main__" ) :
   print "Recovered message: ", message
 
   # check validity of message for UID
-
+  if begining.lower() != message[:2*UIDnumber].lower() :
+    print "Validity check w.r.t UID: NOT OK"
+  print "Validity check w.r.t UID: OK"
