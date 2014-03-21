@@ -154,6 +154,16 @@ def attack( guess, N, exp ) :
 
 # perform limb operation with rest --- carry
 def rest( x ) :
+  # S = (a*b)%base
+  # C = (a*b) >> 64
+  # S += x
+  # while S >= base :
+  #   print S
+  #   S -= base
+  #   C += 1
+  # return (C, S)
+    # if x < base :
+      # return (0, x)
   (quotient, reminder) = divmod(x, base)
   # carry
     # if x >= base :
@@ -161,12 +171,13 @@ def rest( x ) :
     #   return (1, base -x)
     # else :
     #   return (0, x)
-  # C = x%base
+  # C = (x+a*b)%base
   # i = (x-C)/base
+  # i = (x+a*b-C) >> 64
   # if (x-C) % base != 0 :
-  #   print "Carrying error!"
+    # print "Carrying error!"
   # if i*2**64 + C != x or i >= 2**64 :
-  #   print "Base error!"
+    # print "Base error!"
   # return(i, C)
   return(quotient, reminder)
 
@@ -228,7 +239,6 @@ def binExp( result, g  ) :
   # return whether reduction was done or not --- ('1', '1', '0', '0')
   return (bolR, resultR, bol, result)
 
-
 # mock the CIOS Montgomery Multiplication | return whether reduction was done
 def CIOSMM( a, b ) :
   t = list(zeroArray)
@@ -236,7 +246,7 @@ def CIOSMM( a, b ) :
   for i in range( inputSize ) :
     C = 0
     for j in range( inputSize ) :
-      (C, S) = rest( t[j] + a[j]*b[i] + C )
+      (C, S) = rest( t[j] + C + a[j]* b[i] )
       t[j] = S
     (C, S) = rest( t[inputSize] + C )
     t[inputSize] = S
@@ -255,9 +265,9 @@ def CIOSMM( a, b ) :
     #   t[j] = t[j+1]
 
     # improvement ^|^
-    (C,S) = rest( t[0] + m*n[0] )
+    (C,S) = rest( t[0] + m* n[0] )
     for j in range(1,inputSize) :
-      (C,S) = rest( t[j] + m*n[j] + C )
+      (C,S) = rest( t[j] + C + m * n[j] )
       t[j-1] = S
     (C,S) = rest( t[inputSize] + C )
     t[inputSize-1] = S
@@ -277,6 +287,12 @@ def CIOSMM( a, b ) :
   else :
     # print "NoRed ", t[:-2]
     return (False, t[:-2])
+
+  # Try slide implementation to avoid bottleneck
+  # for i in range( inputSize ) :
+  #   u = ( ( t[0] + b[i] * a[0] ) * np0 ) % base
+  #   t = limb(  )[::-1]
+
 
 # add increased number of plaintext
 if ( __name__ == "__main__" ) :
