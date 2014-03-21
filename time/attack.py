@@ -54,16 +54,19 @@ def attack( guess, N, exp ) :
 
   print "Pre-computing constants..."
   global np0
-  np0 = limb(nprime(N))[-1]
+    # np0 = limb(nprime(N))[-1]
+  np0 = nprime(N)
   # pre-compute 1 in Montgomery representation
-  rsq = limb( rhosq(N) )[::-1]
-  one = limb( 1 )[::-1]
+  # rsq = limb( rhosq(N) )[::-1]
+  rsq = rhosq(N)
+  # one = limb( 1 )[::-1]
+  one = 1
   (red, result) = CIOSMM(one, rsq)
   results = [result for i in range(AttacksNo)]
   # prepare space for guess
   exps = []
   # change guess to limbs
-  guess[:] =  [limb(x)[::-1] for x in guess]
+    # guess[:] =  [limb(x)[::-1] for x in guess]
   # change into Montgomery form
   for g in guess :
     (red, mg) = CIOSMM(g, rsq)
@@ -154,6 +157,16 @@ def attack( guess, N, exp ) :
 
 # perform limb operation with rest --- carry
 def rest( x ) :
+  # if x < base :
+    # return (0, x)
+  # xBin = bin(x)[2:]
+  # xBin = "{0:b}".format(x)
+  # return ( int( xBin[:-64] , 2), int( xBin[-64:] , 2) )
+  y = x>>64
+  return( y, x-(y<<64) )
+
+
+
   # S = (a*b)%base
   # C = (a*b) >> 64
   # S += x
@@ -164,7 +177,7 @@ def rest( x ) :
   # return (C, S)
     # if x < base :
       # return (0, x)
-  (quotient, reminder) = divmod(x, base)
+  # (quotient, reminder) = divmod(x, base)
   # carry
     # if x >= base :
     #   print base -x
@@ -179,13 +192,13 @@ def rest( x ) :
   # if i*2**64 + C != x or i >= 2**64 :
     # print "Base error!"
   # return(i, C)
-  return(quotient, reminder)
+  # return(quotient, reminder)
 
 # define borrow operation
 def borrow( x ) :
   if x < 0 :
-    if base+x < 0 or base+x >= base :
-      print base+x
+    # if base+x < 0 or base+x >= base :
+      # print base+x
     return (1, base+x)
   else :
     return (0, x)
@@ -241,63 +254,74 @@ def binExp( result, g  ) :
 
 # mock the CIOS Montgomery Multiplication | return whether reduction was done
 def CIOSMM( a, b ) :
-  t = list(zeroArray)
+  # t = list(zeroArray)
 
-  for i in range( inputSize ) :
-    C = 0
-    for j in range( inputSize ) :
-      (C, S) = rest( t[j] + C + a[j]* b[i] )
-      t[j] = S
-    (C, S) = rest( t[inputSize] + C )
-    t[inputSize] = S
-    t[inputSize + 1] = C
+  # for i in range( inputSize ) :
+  #   C = 0
+  #   for j in range( inputSize ) :
+  #     (C, S) = rest( t[j] + C + a[j]* b[i] )
+  #     t[j] = S
+  #   (C, S) = rest( t[inputSize] + C )
+  #   t[inputSize] = S
+  #   t[inputSize + 1] = C
 
-    C = 0
-    m = ( t[0]*np0 ) % base
+  #   C = 0
+  #   m = ( t[0]*np0 ) % base
 
-    # for j in range( inputSize ) :
-    #   (C, S) = rest( t[j] + m*n[j] + C )
-    #   t[j] = S
-    # (C, S) = rest( t[inputSize] + C )
-    # t[inputSize] = S
-    # t[inputSize+1] = t[inputSize+1] + C
-    # for j in range(inputSize+1) :
-    #   t[j] = t[j+1]
+  #   for j in range( inputSize ) :
+  #     (C, S) = rest( t[j] + m*n[j] + C )
+  #     t[j] = S
+  #   (C, S) = rest( t[inputSize] + C )
+  #   t[inputSize] = S
+  #   t[inputSize+1] = t[inputSize+1] + C
+  #   for j in range(inputSize+1) :
+  #     t[j] = t[j+1]
 
-    # improvement ^|^
-    (C,S) = rest( t[0] + m* n[0] )
-    for j in range(1,inputSize) :
-      (C,S) = rest( t[j] + C + m * n[j] )
-      t[j-1] = S
-    (C,S) = rest( t[inputSize] + C )
-    t[inputSize-1] = S
-    t[inputSize] = t[inputSize+1] + C
+  #   # improvement ^|^
+  #   (C,S) = rest( t[0] + m* n[0] )
+  #   for j in range(1,inputSize) :
+  #     (C,S) = rest( t[j] + C + m * n[j] )
+  #     t[j-1] = S
+  #   (C,S) = rest( t[inputSize] + C )
+  #   t[inputSize-1] = S
+  #   t[inputSize] = t[inputSize+1] + C
 
-  # REDUCTION
-  B = 0
-  u = list(zeroArray)
-  for i in range( inputSize ) :
-    (B,D) = borrow( t[i] - n[i] - B )
-    u[i] = D
-  (B, D) = borrow ( t[inputSize] - B )
-  u[inputSize] = D
-  if B == 0 :
-    # print "Red ", u[:-2]
-    return (True, u[:-2])
-  else :
-    # print "NoRed ", t[:-2]
-    return (False, t[:-2])
+  # # REDUCTION
+  # B = 0
+  # u = list(zeroArray)
+  # for i in range( inputSize ) :
+  #   (B,D) = borrow( t[i] - n[i] - B )
+  #   u[i] = D
+  # (B, D) = borrow ( t[inputSize] - B )
+  # u[inputSize] = D
+  # if B == 0 :
+  #   return (True, u[:-2])
+  # else :
+  #   return (False, t[:-2])
 
   # Try slide implementation to avoid bottleneck
-  # for i in range( inputSize ) :
-  #   u = ( ( t[0] + b[i] * a[0] ) * np0 ) % base
-  #   t = limb(  )[::-1]
+  t = 0
+  for i in range( inputSize ) :
+    u = ( ( (t & masks[0]) + ((b & masks[i])>>i*wordSize) * (a & masks[0]) ) * np0 ) % base
+    t = (t+ ((b & masks[i]) >> i*wordSize) * a + u*N ) >> wordSize
+  if t >= N :
+    return (True, t-N)
+  else :
+    return (False, t)
 
+# Create masks
+def createMasks( masks ) :
+  mask = int(wordSize*'1', 2)
+  for i in range(inputSize) :
+    masks.append(  mask )
+    mask = mask << 64
 
 # add increased number of plaintext
 if ( __name__ == "__main__" ) :
   # Globals
   np0, N, n, zeroArray = 0, 0, [], []
+  masks = []
+  createMasks( masks )
 
   # Get the public key parameters
   publicKey = []
@@ -312,7 +336,7 @@ if ( __name__ == "__main__" ) :
   # get modulus
   modul = publicKey[0]
   N = modul
-  n = limb( N )[::-1]
+  # n = limb( N )[::-1]
 
   # generate zero array of given length for Montgomery multiplication output
   zeroArray = nullLimb(inputSize+2)
