@@ -46,19 +46,15 @@ def encrypt( base, exponent, modulus ) :
 #                                   {1,1,-,-,-,-,-,-}
 #   and so on for each cypher-text and remember whether reduction occurred
 #   measuring time for decryption of each cypher-text
-def attack( guess, N, exp ) :
+def attack( guess, exp ) :
   # interact --- get time measurements
   print "Timing..."
   time = interact(guess)
   print "Timing done!"
 
   print "Pre-computing constants..."
-  global np0
-    # np0 = limb(nprime(N))[-1]
-  np0 = nprime(N)
+
   # pre-compute 1 in Montgomery representation
-  # rsq = limb( rhosq(N) )[::-1]
-  rsq = rhosq(N)
   # one = limb( 1 )[::-1]
   one = 1
   (red, result) = CIOSMM(one, rsq)
@@ -93,7 +89,6 @@ def attack( guess, N, exp ) :
   while True :
     for x in range(AttacksNo) :
       # try guess (1, 1, 0, 0)
-      # print "binexping"
       (one, Rone, zero, Rzero) = binExp( results[x], exps[x] )
       # for 1 in exp
       if one:
@@ -157,48 +152,12 @@ def attack( guess, N, exp ) :
 
 # perform limb operation with rest --- carry
 def rest( x ) :
-  # if x < base :
-    # return (0, x)
-  # xBin = bin(x)[2:]
-  # xBin = "{0:b}".format(x)
-  # return ( int( xBin[:-64] , 2), int( xBin[-64:] , 2) )
   y = x>>64
   return( y, x-(y<<64) )
-
-
-
-  # S = (a*b)%base
-  # C = (a*b) >> 64
-  # S += x
-  # while S >= base :
-  #   print S
-  #   S -= base
-  #   C += 1
-  # return (C, S)
-    # if x < base :
-      # return (0, x)
-  # (quotient, reminder) = divmod(x, base)
-  # carry
-    # if x >= base :
-    #   print base -x
-    #   return (1, base -x)
-    # else :
-    #   return (0, x)
-  # C = (x+a*b)%base
-  # i = (x-C)/base
-  # i = (x+a*b-C) >> 64
-  # if (x-C) % base != 0 :
-    # print "Carrying error!"
-  # if i*2**64 + C != x or i >= 2**64 :
-    # print "Base error!"
-  # return(i, C)
-  # return(quotient, reminder)
 
 # define borrow operation
 def borrow( x ) :
   if x < 0 :
-    # if base+x < 0 or base+x >= base :
-      # print base+x
     return (1, base+x)
   else :
     return (0, x)
@@ -214,8 +173,8 @@ def nullLimb( size ) :
 def nprime( N ) :
   t = 1
   for i in range( wordSize - 1 ) :
-    t = ( t * t * N ) % base
-  return ( -1 * t ) % base
+    t = ( t * t * N ) & Gmask # % base
+  return ( -1 * t ) & Gmask # % base
 
 # create limb representation of given number --- index 0 is least significant
 def limb( a ) :
@@ -286,30 +245,30 @@ def CIOSMM( a, b ) :
   #   t[inputSize-1] = S
   #   t[inputSize] = t[inputSize+1] + C
 
-  # # REDUCTION
-  # B = 0
-  # u = list(zeroArray)
-  # for i in range( inputSize ) :
-  #   (B,D) = borrow( t[i] - n[i] - B )
-  #   u[i] = D
-  # (B, D) = borrow ( t[inputSize] - B )
-  # u[inputSize] = D
-  # if B == 0 :
-  #   return (True, u[:-2])
-  # else :
-  #   return (False, t[:-2])
+  #   # REDUCTION
+  #   B = 0
+  #   u = list(zeroArray)
+  #   for i in range( inputSize ) :
+  #     (B,D) = borrow( t[i] - n[i] - B )
+  #     u[i] = D
+  #   (B, D) = borrow ( t[inputSize] - B )
+  #   u[inputSize] = D
+  #   if B == 0 :
+  #     return (True, u[:-2])
+  #   else :
+  #     return (False, t[:-2])
 
-  # Try slide implementation to avoid bottleneck
+  # Try slide implementation to avoid bottleneck in Borrow/Carry
   t = 0
   for i in range( inputSize ) :
-    u = ( ( (t & masks[0]) + ((b & masks[i])>>i*wordSize) * (a & masks[0]) ) * np0 ) % base
-    t = (t+ ((b & masks[i]) >> i*wordSize) * a + u*N ) >> wordSize
+    u = (((t&Gmask) + ((b>>(i*wordSize))&Gmask) * (a&Gmask)) * np0 ) & Gmask
+    t = (t+((b>>i*wordSize)&Gmask) * a + u*N ) >> wordSize
   if t >= N :
     return (True, t-N)
   else :
     return (False, t)
 
-# Create masks
+# Create mask set
 def createMasks( masks ) :
   mask = int(wordSize*'1', 2)
   for i in range(inputSize) :
@@ -319,27 +278,30 @@ def createMasks( masks ) :
 # add increased number of plaintext
 if ( __name__ == "__main__" ) :
   # Globals
-  np0, N, n, zeroArray = 0, 0, [], []
-  masks = []
-  createMasks( masks )
+  np0, N, rsq = 0, 0, 0
+  # zeroArray = []
 
   # Get the public key parameters
   publicKey = []
   with open( sys.argv[ 2 ] ) as f:
     for line in f:
         publicKey.append( line[:-1] )
+  Gmask = int(wordSize*'1', 2)
 
   # change hex strings into int
   for i, k in enumerate( publicKey ) :
     publicKey[i] = long( k, 16 )
 
   # get modulus
-  modul = publicKey[0]
-  N = modul
+  N = publicKey[0]
   # n = limb( N )[::-1]
+  # np0 = limb(nprime(N))[-1]
+  np0 = nprime(N)
+  # rsq = limb( rhosq(N) )[::-1]
+  rsq = rhosq(N)
 
   # generate zero array of given length for Montgomery multiplication output
-  zeroArray = nullLimb(inputSize+2)
+  # zeroArray = nullLimb(inputSize+2)
 
   # put exponent to binary string
   exp = "{0:b}".format( publicKey[1] )
@@ -350,14 +312,14 @@ if ( __name__ == "__main__" ) :
   while( i < AttacksNo ) :
     rr = random.getrandbits( 1024 )
     # check whether are less than N
-    if rr < modul :
+    if rr < N :
       attacksE.append( rr )
       i += 1
 
   # encrypt them with e and N --- testing
-  attacks =[]
+  # attacks =[]
   # for i in attacksE :
-    # attacks.append( encrypt( i, exp, modul ) )
+    # attacks.append( encrypt( i, exp, N ) )
   attacks = attacksE
 
   print "Attacks Generated.\nStarting interaction."
@@ -379,10 +341,10 @@ if ( __name__ == "__main__" ) :
   # generate random message --- encrypt --- decrypt --- comparison purpose
   while True :
     mess = random.getrandbits( 1024 )
-    if mess < modul :
+    if mess < N :
       break
   # encrypt
-  cipher = encrypt(mess, exp, modul)
+  cipher = encrypt(mess, exp, N)
   # decrypt with device for comparison
   target_in.write( "%X\n" % ( cipher ) ) ; target_in.flush()
   # Receive time from attack target.
@@ -392,11 +354,11 @@ if ( __name__ == "__main__" ) :
 
   # attack until good key is found
   while True :
-    secretKey = attack( attacks, modul, attackExp )
-    if decipher == encrypt(cipher, secretKey+'1', modul):
+    secretKey = attack( attacks, attackExp )
+    if decipher == encrypt(cipher, secretKey+'1', N):
       LSB = '1'
       break
-    elif decipher == encrypt(cipher, secretKey+'0', modul):
+    elif decipher == encrypt(cipher, secretKey+'0', N):
       LSB = '0'
       break
     else : # if does not fit --- try again
