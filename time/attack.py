@@ -1,34 +1,16 @@
 #! /usr/bin/python
-
 import sys, subprocess, random
 from numpy import mean
 
-# number of attacks
-AttacksNo = 4000
+# CONSTANTS
+#   number of attacks
+AttacksNo = 10000
+#
 wordSize = 64
 base = 2 ** wordSize
 # input is 1024 bits that is 16 limbs in base 2 ** 64
 bits = 1024
 inputSize = 16
-
-# Globals
-np0 = 0
-N = 0
-n = []
-
-####
-# Define parameters to distinguish attacks --- tuning-in
-#    1024 cycles for 0 exp
-#    1536 cycles for 1 exp
-# 302EC28F32A7DF954C9589136DE15B1E5DD036E86DDD4AA0F5076F152C0D3A74F2508E1987EF4AF883A3C3FD2E4E04AC1512888126BAA8EA0537A12F195F5A96FC6B64D035FDA06BD42E5F0DC61EA5DC04FA141C0A95F1615F71316356F9F255648FE60FAA7E81069C3892E50C0CF387DF15CEACA0130ED1CB9852952E65CAC1
-# EB3D0F3F6FE93288C441C49D9F2C16088E95FCABF7A42FC60DE0A01F4016D1FE10BBA25DC21F6843406A723E65E5562B510DA88E73C9CBE62C2594333897F902047096FB0020BFF20F9783F030A14399B20A1D464AA4B7AC928F6784A3A124C610512A9A0EB83B94C30ADEF06309A1205C6B9DC3442E5138E4F2F7AB5EC547CB
-# 3 / 2 / 1
-#
-#  multiply step has 1536-1024=512 cycles
-CoreT = 512
-MultiplicationT = 512
-ReductionT = 16
-####
 
 # interact with real device
 def interact( G ) :
@@ -55,15 +37,9 @@ def interactR( G, N, d ) :
     target_out.readline().strip()
   return t
 
-# binary modular exponentiation
+# modular exponentiation --- testing stage
 def encrypt( base, exponent, modulus ) :
-  a = 1
-  for i in exponent :
-    a *= a
-    if i == '1' :
-      a *= base
-    a = a % modulus
-  return a
+  return pow(base, int(exponent, 2), modulus)
 
 # attack given device
 #   start recovering by testing key {1,0,-,-,-,-,-,-}
@@ -71,137 +47,100 @@ def encrypt( base, exponent, modulus ) :
 #   and so on for each cypher-text and remember whether reduction occurred
 #   measuring time for decryption of each cypher-text
 def attack( guess, N, exp ) :
-  global np0
-  np0 = limb(nprime(N))[-1]
-  baseline = interact([1])
   # interact --- get time measurements
+  print "Timing..."
   time = interact(guess)
   print "Timing done!"
 
-  # testing stage --- tuning parameters
-  # baseline = interactR([1], N, exp)
-  # time = interactR(guess, N, exp)
-  # time[:] = [x - baseline[0] for x in time]
-  # give number of reductions
-  # time[:] = [x / ReductionT for x in time]
-
-
-
+  print "Pre-computing constants..."
+  global np0
+  np0 = limb(nprime(N))[-1]
   # pre-compute 1 in Montgomery representation
   rsq = limb( rhosq(N) )[::-1]
   one = limb( 1 )[::-1]
-  (red, result) = CIOSMM(one, rsq)#, N)
+  (red, result) = CIOSMM(one, rsq)
   results = [result for i in range(AttacksNo)]
-  reductionNo = [0 for i in range(AttacksNo)]
+  # prepare space for guess
   exps = []
-
   # change guess to limbs
   guess[:] =  [limb(x)[::-1] for x in guess]
-
+  # change into Montgomery form
   for g in guess :
-    (red, mg) = CIOSMM(g, rsq)#, N)
+    (red, mg) = CIOSMM(g, rsq)
     exps.append(mg)
-
   print "All needed values precomputed!"
   
   # define needed variables
-  reductionTable1 = []
-  reductionTable2 = []
-  timingme1=[]
-  timingme2=[]
-  results1 = []
-  results2 = []
+  resulting0 = []
+  resulting1 = []
+  count1Red = [0.0, 0]
+  count1NoRed = [0.0, 0]
+  count0Red = [0.0, 0]
+  count0NoRed = [0.0, 0]
 
   # as we know that first bit is 1 the multiplication step will take place
   keyGuess = '1'
   # time[:] = [x - MultiplicationT for x in time]
-  for x, i in enumerate(guess) :
-    (nm,reductionNo[x],results[x], Non, Non, Non ) = binExp( i, '1', N, 0, results[x], exps[x], reductionNo[x] )
+  for x in range(AttacksNo) :
+    (red, results[x]) = CIOSMM(results[x], results[x])
+    (red, results[x]) = CIOSMM(results[x], exps[x])
 
   print "Start knocking!"
-
-  for j in range(1,len(exp)-1) : # last bit must be guessed
-    for x, i in enumerate(guess) :
-      # try guess 1
-      tupl = binExp( i, '1', N, 0, results[x], exps[x], reductionNo[x] )
-      reductionTable1.append( tupl[0] )
-      if tupl[0]:
-        niu = tupl[1] + 1
+  while True :
+    for x in range(AttacksNo) :
+      # try guess (1, 1, 0, 0)
+      # print "binexping"
+      (one, Rone, zero, Rzero) = binExp( results[x], exps[x] )
+      # for 1 in exp
+      if one:
+        count1Red[0] += time[x]
+        count1Red[1] += 1
       else :
-        niu = tupl[1]
-      timingme1.append(niu)
-      results1.append(tupl[2])
-
-      # try guess 0
-      # tupl = binExp( i, '0', N, 0, results[x], exps[x], reductionNo[x] )
-      reductionTable2.append( tupl[3] )
-      if tupl[3]:
-        niu = tupl[4] + 1
+        count1NoRed[0] += time[x]
+        count1NoRed[1] += 1
+      # for 0 in exp
+      if zero :
+        count0Red[0] += time[x]
+        count0Red[1] += 1
       else :
-        niu = tupl[4]
-      timingme2.append(niu)
-      results2.append(tupl[5])
+        count0NoRed[0] += time[x]
+        count0NoRed[1] += 1
 
-    # create tuples for easier handling
-    tuples1 = zip(reductionTable1, time, timingme1)
-    tuples2 = zip(reductionTable2, time, timingme2)
-    P, M = [], []
-    PT, MT = [], []
+      # Remember results for future
+      resulting1.append(Rone)
+      resulting0.append(Rzero)
 
-    # testing variables --- testing
-    # A, B, C, D, E, F, G, H = [], [], [], [], [], [], [], []
-
-    # divide samples into two groups - 0:red/noRed | 1:red/noRed
-    for k in tuples1:
-      # A.append(k[1])
-      # E.append(k[2])
-      # B.append(k[1]-k[2])
-      if k[0] : # with reduction
-        P.append(k[1])
-        # B.append(k[2])
-      else : # withOUT reduction
-        M.append(k[1])
-        # G.append(k[2])
-        # MT.append(k[2])
-    for k in tuples2:
-      # C.append(k[1])
-      # F.append(k[2])
-      # D.append(k[1]-k[2])
-      if k[0] : # with reduction
-        PT.append(k[1])
-        # D.append(k[2])
-        # PT.append(k[2])
-      else : # withOUT reduction
-        MT.append(k[1])
-        # H.append(k[2])
+    # calculate average
+    count1Red[0] /=  count1Red[1]
+    count1NoRed[0] /=  count1NoRed[1]
+    count0Red[0] /=  count0Red[1]
+    count0NoRed[0] /=  count0NoRed[1]
 
     print "Averages for bit=1"
-    print "Red:",mean(P)
-    print "NRe:",mean(M)
+    print "Red:", count1Red[0]
+    print "NRe:", count1NoRed[0]
     print "Averages for bit=0"
-    print "Red:",mean(PT)
-    print "NRe:",mean(MT)
+    print "Red:", count0Red[0]
+    print "NRe:", count0NoRed[0]
 
-    pm = mean(P) - mean(M)
-    ptmt = mean(PT) - mean(MT)
+    pm = count1Red[0] - count1NoRed[0]
+    ptmt = count0Red[0] - count0NoRed[0]
 
     if pm > ptmt :
       keyGuess += '1'
-      results = results1
-      reductionNo = timingme1
+      results = resulting1
     else :
       keyGuess += '0'
-      results = results2
-      reductionNo = timingme2
+      results = resulting0
     print "Partial key: ", keyGuess
     print "\n"
 
-    reductionTable1=[]
-    reductionTable2=[]
-    timingme1=[]
-    timingme2=[]
-    results1 = []
-    results2 = []
+    resulting0 = []
+    resulting1 = []
+    count1Red = [0.0, 0]
+    count1NoRed = [0.0, 0]
+    count0Red = [0.0, 0]
+    count0NoRed = [0.0, 0]
 
     # if time with reductions are less than time without than we are done
     if keyGuess[-1] == '1' and pm < 0 :
@@ -215,14 +154,30 @@ def attack( guess, N, exp ) :
 
 # perform limb operation with rest --- carry
 def rest( x ) :
+  (quotient, reminder) = divmod(x, base)
   # carry
-  C = x%base
-  i = (x-C)/base
-  if (x-C) % base != 0 :
-    print "Carrying error!"
-  if i*2**64 + C != x or i >= 2**64 :
-    print "Base error!"
-  return(i, C)
+    # if x >= base :
+    #   print base -x
+    #   return (1, base -x)
+    # else :
+    #   return (0, x)
+  # C = x%base
+  # i = (x-C)/base
+  # if (x-C) % base != 0 :
+  #   print "Carrying error!"
+  # if i*2**64 + C != x or i >= 2**64 :
+  #   print "Base error!"
+  # return(i, C)
+  return(quotient, reminder)
+
+# define borrow operation
+def borrow( x ) :
+  if x < 0 :
+    if base+x < 0 or base+x >= base :
+      print base+x
+    return (1, base+x)
+  else :
+    return (0, x)
 
 # create limb filled with 0s of given length
 def nullLimb( size ) :
@@ -260,36 +215,19 @@ def rhosq(N) :
 
 # Section 2.1 binary exponentiation | g ** r
 #   *j* denote bit that we are attacking
-def binExp( gr, r, N, j, res, g, reno  ) :
-  # make local copy of variables
-  result = res
-  redno = reno
+def binExp( result, g  ) :
+  # Square step --- already done
+  # (red, result) = CIOSMM( result, result)#, N )#result *= result % N
 
-  for n, i in enumerate( r ) : # --- start from most significant bit
-    # Square step
-    (red, result) = CIOSMM( result, result)#, N )#result *= result % N
-    if red :
-      redno +=1
+  # Multiplication step if bit is '1'
+  resultR = result
+  (red, resultR) = CIOSMM( resultR, g)
 
-    # result redno is without additional multiplication step
-    # variables for reduction
-    resultR, rednoR = result, redno
-
-    # Multiplication step
-    # if i == '1' :
-    (red, resultR) = CIOSMM( resultR, g)#, N )#result *= g % N
-    if red :
-      rednoR +=1
-
-    # Attack square in chosen round(chosen bit)
-    # if j == n :
-    (bol, null) = CIOSMM( result, result)#, N )
-    (bolR, null) = CIOSMM( resultR, resultR)#, N )
-    # return whether reduction was done or not
-    return (bolR, rednoR, resultR, bol, redno, result)
-
-  #If missed loop return error
-  return (-1, -1)
+  # Attack square in next round
+  (bol, result) = CIOSMM( result, result)
+  (bolR, resultR) = CIOSMM( resultR, resultR)
+  # return whether reduction was done or not --- ('1', '1', '0', '0')
+  return (bolR, resultR, bol, result)
 
 
 # mock the CIOS Montgomery Multiplication with w= 64 | b =  2 ** 64
@@ -302,8 +240,9 @@ def CIOSMM( a, b ) :
     # a = limb( x )[::-1]
     # b = limb( y )[::-1]
     # n = limb( N )[::-1]
-  t = nullLimb(inputSize+2)
     # np0 = limb(nprime(N))[-1]
+  t = zeroArray
+  # print t
 
   for i in range( inputSize ) :
     C = 0
@@ -314,10 +253,8 @@ def CIOSMM( a, b ) :
     t[inputSize] = S
     t[inputSize + 1] = C
 
-
     C = 0
     m = ( t[0]*np0 ) % base
-
 
     # for j in range( inputSize ) :
     #   (C, S) = rest( t[j] + m*n[j] + C )
@@ -338,6 +275,17 @@ def CIOSMM( a, b ) :
     t[inputSize] = t[inputSize+1] + C
 
   # REDUCTION
+  # B = 0
+  # u = zeroArray
+  # for i in range( inputSize ) :
+  #   (B,D) = borrow( t[i] - n[i] - B )
+  #   u[i] = D
+  # (B, D) = borrow ( t[inputSize] - B )
+  # u[inputSize] = D
+  # if B == 0 :
+  #   return (True, u[:-1])
+  # else :
+  #   return (False, t[:-1])
   out = 0
   for i in range(inputSize+1) :
     out += t[i]* base**i
@@ -347,9 +295,10 @@ def CIOSMM( a, b ) :
   else :
     return (False, limb(out)[::-1])
 
-
+# add increased number of plaintext
 if ( __name__ == "__main__" ) :
-  global N, n
+  # Globals
+  np0, N, n, zeroArray = 0, 0, [], []
 
   # Get the public key parameters
   publicKey = []
@@ -365,6 +314,9 @@ if ( __name__ == "__main__" ) :
   modul = publicKey[0]
   N = modul
   n = limb( N )[::-1]
+
+  # generate zero array of given length for Montgomery multiplication output
+  zeroArray = nullLimb(inputSize+2)
 
   # put exponent to binary string
   exp = "{0:b}".format( publicKey[1] )
@@ -424,9 +376,7 @@ if ( __name__ == "__main__" ) :
     elif decipher == encrypt(cipher, secretKey+'0', modul):
       LSB = '0'
       break
-    else :
-      # if does not fit --- try again
+    else : # if does not fit --- try again
       print "Failed to recover key --- trying again!"
-      pass
   print "Secret key in bin format: ", secretKey+LSB    
   print "Secret key in hex format: %X" % ( long(secretKey+LSB, 2) )
