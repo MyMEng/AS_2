@@ -68,7 +68,6 @@ def attack( guess, N, exp ) :
   for g in guess :
     (red, mg) = CIOSMM(g, rsq)
     exps.append(mg)
-  print "All needed values precomputed!"
   
   # define needed variables
   resulting0 = []
@@ -84,6 +83,8 @@ def attack( guess, N, exp ) :
   for x in range(AttacksNo) :
     (red, results[x]) = CIOSMM(results[x], results[x])
     (red, results[x]) = CIOSMM(results[x], exps[x])
+    (red, results[x]) = CIOSMM(results[x], results[x])
+  print "All needed values precomputed!"
 
   print "Start knocking!"
   while True :
@@ -128,10 +129,10 @@ def attack( guess, N, exp ) :
 
     if pm > ptmt :
       keyGuess += '1'
-      results = resulting1
+      results = list(resulting1)
     else :
       keyGuess += '0'
-      results = resulting0
+      results = list(resulting0)
     print "Partial key: ", keyGuess
     print "\n"
 
@@ -150,7 +151,6 @@ def attack( guess, N, exp ) :
 
   # return key guess without last bit which must be guessed
   return keyGuess[:-1]
-
 
 # perform limb operation with rest --- carry
 def rest( x ) :
@@ -214,7 +214,6 @@ def rhosq(N) :
     return t
 
 # Section 2.1 binary exponentiation | g ** r
-#   *j* denote bit that we are attacking
 def binExp( result, g  ) :
   # Square step --- already done
   # (red, result) = CIOSMM( result, result)#, N )#result *= result % N
@@ -230,19 +229,9 @@ def binExp( result, g  ) :
   return (bolR, resultR, bol, result)
 
 
-# mock the CIOS Montgomery Multiplication with w= 64 | b =  2 ** 64
-#   return whether reduction was done or not
-# def CIOSMM( x, y, N ) :
+# mock the CIOS Montgomery Multiplication | return whether reduction was done
 def CIOSMM( a, b ) :
-  # *s* is the number of words in *x* and *y*
-    # if x >= 2**1024-1 or y >= 2**1024-1:
-      # print "CIOS-MM: operand out of range!"
-    # a = limb( x )[::-1]
-    # b = limb( y )[::-1]
-    # n = limb( N )[::-1]
-    # np0 = limb(nprime(N))[-1]
-  t = zeroArray
-  # print t
+  t = list(zeroArray)
 
   for i in range( inputSize ) :
     C = 0
@@ -275,25 +264,19 @@ def CIOSMM( a, b ) :
     t[inputSize] = t[inputSize+1] + C
 
   # REDUCTION
-  # B = 0
-  # u = zeroArray
-  # for i in range( inputSize ) :
-  #   (B,D) = borrow( t[i] - n[i] - B )
-  #   u[i] = D
-  # (B, D) = borrow ( t[inputSize] - B )
-  # u[inputSize] = D
-  # if B == 0 :
-  #   return (True, u[:-1])
-  # else :
-  #   return (False, t[:-1])
-  out = 0
-  for i in range(inputSize+1) :
-    out += t[i]* base**i
-  # Reduction ?
-  if out >= N :
-    return (True, limb(out-N)[::-1])
+  B = 0
+  u = list(zeroArray)
+  for i in range( inputSize ) :
+    (B,D) = borrow( t[i] - n[i] - B )
+    u[i] = D
+  (B, D) = borrow ( t[inputSize] - B )
+  u[inputSize] = D
+  if B == 0 :
+    # print "Red ", u[:-2]
+    return (True, u[:-2])
   else :
-    return (False, limb(out)[::-1])
+    # print "NoRed ", t[:-2]
+    return (False, t[:-2])
 
 # add increased number of plaintext
 if ( __name__ == "__main__" ) :
