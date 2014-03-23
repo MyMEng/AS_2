@@ -28,7 +28,8 @@ by the assignment description of course).  Let us know what third-party
 source code or resources you used (if any) so it's clear what's your work 
 and what isn't:
 
-[...]
+[
+]
 
 -------------------------------------------------------------------------------
 
@@ -41,15 +42,16 @@ For example, other elements outside this list *often* warrant an increase
 or decrease in marks; examples include hard to quantify features such as
 the style or efficiency of a solution.
 
-[?] Stage 1 : an attack based on error messages
+[X] Stage 1 : an attack based on error messages
 
               - Successfully reversed RSADP    primitive             ( 50%)
               - Successfully reversed EME-OAEP primitive             ( 50%)
 
-                Attack result : [37260000441853B0A1FBF596F637021013D780165FCDF6194476387EAEEF512012753A68A4AF92AD36421C87D9D09628EE41
+                Attack result : [
+                37260000441853B0A1FBF596F637021013D780165FCDF6194476387EAEEF512012753A68A4AF92AD36421C87D9D09628EE41
                 ]
 
-[?] Stage 2 : an attack based on execution time
+[X] Stage 2 : an attack based on execution time
 
               - Efficiency  of attack strategy                       ( 20%)
               - Robustness  of attack strategy                       ( 20%)
@@ -88,6 +90,7 @@ Any other documentation, notes or comments that you think are important or
 might be easy to overlook (e.g., a subtle issue or technique in associated
 source code) should go here:
 
-[...]
+[
+]
 
 --------------------------------------------------------------------
