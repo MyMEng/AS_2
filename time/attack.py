@@ -4,7 +4,9 @@ from numpy import mean
 
 # CONSTANTS
 #   number of attacks
-AttacksNo = 10000
+AttacksNo = 11000
+#   threshold of attack distinguisher
+threshold = 2
 #
 wordSize = 64
 base = 2 ** wordSize
@@ -142,27 +144,27 @@ def attack( guess, exp ) :
     count0NoRed = [0.0, 0]
 
     # if time with reductions are less than time without than we are done
-    if keyGuess[-1] == '1' and pm < 0 :
+    if keyGuess[-1] == '1' and pm < threshold :
       break
-    elif keyGuess[-1] == '0' and ptmt < 0 :
+    elif keyGuess[-1] == '0' and ptmt < threshold :
       break
 
   # return key guess without last bit which must be guessed
   return keyGuess[:-1]
 
-# perform limb operation with rest --- carry
+# perform limb operation with rest --- carry --- testing stage
 def rest( x ) :
   y = x>>64
   return( y, x-(y<<64) )
 
-# define borrow operation
+# define borrow operation --- testing stage
 def borrow( x ) :
   if x < 0 :
     return (1, base+x)
   else :
     return (0, x)
 
-# create limb filled with 0s of given length
+# create limb filled with 0s of given length --- testing stage
 def nullLimb( size ) :
   t = []
   for i in range( size ) :
@@ -177,6 +179,7 @@ def nprime( N ) :
   return ( -1 * t ) & Gmask # % base
 
 # create limb representation of given number --- index 0 is least significant
+#   --- testing stage
 def limb( a ) :
   b = "{0:b}".format(a)
   # padding
@@ -213,6 +216,7 @@ def binExp( result, g  ) :
 
 # mock the CIOS Montgomery Multiplication | return whether reduction was done
 def CIOSMM( a, b ) :
+  # CIOS full
   # t = list(zeroArray)
 
   # for i in range( inputSize ) :
@@ -258,6 +262,14 @@ def CIOSMM( a, b ) :
   #   else :
   #     return (False, t[:-2])
 
+  # CIOS shorten slides
+  # u = a*b
+  # t = ( u + ( (  u* (np0  & Gmask) ) * N ) ) >> wordSize
+  # if t >= N :
+  #   return (True, t-N)
+  # else :
+  #   return (False, t)
+
   # Try slide implementation to avoid bottleneck in Borrow/Carry
   t = 0
   for i in range( inputSize ) :
@@ -268,7 +280,7 @@ def CIOSMM( a, b ) :
   else :
     return (False, t)
 
-# Create mask set
+# Create mask set --- testing stage
 def createMasks( masks ) :
   mask = int(wordSize*'1', 2)
   for i in range(inputSize) :
@@ -335,8 +347,9 @@ if ( __name__ == "__main__" ) :
   target_out = target.stdout
   target_in  = target.stdin
 
-  # d exponent for testing purposes --- testing
-  attackExp = '1010'+20*'0'+20*'1'+19*'0'+'1'
+  # d exponent for testing purposes --- testing stage
+  # attackExp = '1010'+20*'0'+20*'1'+19*'0'+'1'
+  attackExp = ''
 
   # generate random message --- encrypt --- decrypt --- comparison purpose
   while True :
@@ -363,5 +376,18 @@ if ( __name__ == "__main__" ) :
       break
     else : # if does not fit --- try again
       print "Failed to recover key --- trying again!"
+      print "Increasing sample space"
+      AttacksNo += 1000
+      # generate 1024-bit strings for attacks
+      i = 0
+      attacksE = []
+      while( i < AttacksNo ) :
+        rr = random.getrandbits( 1024 )
+        # check whether are less than N
+        if rr < N :
+          attacksE.append( rr )
+          i += 1
+      attacks = attacksE
+
   print "Secret key in bin format: ", secretKey+LSB    
   print "Secret key in hex format: %X" % ( long(secretKey+LSB, 2) )
