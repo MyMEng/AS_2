@@ -390,5 +390,4 @@ if ( __name__ == "__main__" ) :
       attacks = attacksE
 
   print "Secret key in bin format: ", secretKey+LSB    
-  
   print "Secret key in hex format: %X" % ( long(secretKey+LSB, 2) )
