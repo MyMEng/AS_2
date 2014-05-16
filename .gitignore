@@ -2,3 +2,4 @@ time/*.txt
 time/*.out
 *DS_Store
 ._*
+*.mat
