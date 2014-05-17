@@ -8,28 +8,32 @@ from numpy import where
 import struct, Crypto.Cipher.AES as AES
 from struct import pack
 from pprint import pprint
+import multiprocessing
 
 # CONSTANTS
 #   number of attacks
-AttacksNo    = 200
+AttacksNo     = 200
+# attack number increment
+attackNoInc   = 50
 #
 # Input size in octets
-inputOctets  = 32
+inputOctets   = 32
 # hex pairs in key
-keyHexes     = 16
+keyHexes      = 16
 # Key size in bits
-keySize      = 128
+keySize       = 128
 # octet size
-octet        = 256
+octet         = 256
 # correlation chunk size
-chunkSize    = 50
+chunkSize     = 300
 # chunks to process
-first, last  = 0, 256
+first, last   = 0, 256
 
 # define parameters for trace extraction
 # create sampling vector to select trace entries
-sampleSize   = 0.05    # 5%
-samplingType = 'first' # take first __%
+sampleSize    = 0.05    # 5%
+sampleSizeInc = 0.05
+samplingType  = 'first' # take first __%
 # "{0:b}".format( key )
 
 # Rijndael S-box
@@ -194,22 +198,14 @@ def getMxCorrelation( Hi, Ti ) :
   #     # R[i, j] = pearsonr( Hi[:, i], Ti[:, j] )[0]
   #     R[i, j] = corrcoef( Hi[:, i].T, Ti[:, j].T )[0][1]
 
-
   chunks = Tc / chunkSize;
   for i in range ( first, last ) :
     for j in range( chunks ) :
       j1 = j * chunkSize
       j2 = (j + 1) * chunkSize
 
-      # print j1, "  ", j2
-
-      # print Ti[:, j1:j2 ].T
-      # print Hi[:, i     ].T 
-
-  # tmp =  corrcoef(  Ti[:, j1:j2 ].T,      Hi[:, i     ].T  )[0][1]
-  # R[i, j1:j2] = tmp[chunkSize, 0:chunkSize]
-      # key_trace(i,1+(j-1)*chunksize:j*chunksize) = cmatrix(chunksize+1,1:chunksize);
-
+      # tmp =  corrcoef(  Ti[:, j1:j2 ].T,      Hi[:, i     ].T  )[0][1]
+      # R[i, j1:j2] = tmp[chunkSize, 0:chunkSize]
       for jj in range(j1, j2) :
         tmp =  corrcoef(  Ti[:, jj ].T,      Hi[:, i     ].T  )[0][1]
         R[i, jj] = tmp
@@ -251,7 +247,7 @@ def testSol( key ) :
   message = message.zfill( inputOctets )
 
   # Encrypt with the device
-  ( trace, cipher ) = interact( message, None )
+  ( trace, cipher ) = interact( long( message, 16 ), None )
 
   # transform message, encryption and key to list format
   m = splitPairs( message )
@@ -271,11 +267,56 @@ def testSol( key ) :
     print "Key recovery failed, trying again!"
     return 1
 
+# get traces correlation
+def getMxCorrelationParallel( HiTiij ) :
+  Hi, Ti, i, j = HiTiij
+  return ( i, j, corrcoef( Hi[:, i].T, Ti[:, j].T )[0][1] )
+# par controller
+def corPar( Hi, traces, pool ) :
+  ( r , Hc ) = Hi.shape
+  ( r , Tc ) = traces.shape
+  Ri = zeros( (Hc, Tc) )
+  inputs = []
+  for x in range(Hc) :
+    for y in range(Tc) :
+      inputs.append( (Hi, traces, x, y) )
+  for data in pool.map(getMxCorrelationParallel,inputs):
+    ( i, j, cor) = data
+    Ri[i, j] = cor
+  return Ri
 
+# get traces correlation chunks version with parallelization
+def getMxCorrelationChunksPar( Hitracesij1j2 ) :
+  ( Hi, Ti, i, j1, j2 ) = Hitracesij1j2
+  tmp = []
+  for jj in range(j1, j2) :
+    tmp.append(  corrcoef(  Ti[:, jj ].T,      Hi[:, i     ].T  )[0][1]  )
+    # R[i, jj] = tmp
+  return ( i, j1, j2, tmp )
+# controller for chunks correlation
+def corParChunk( Hi, traces, pool ) :
+  ( r , Hc ) = Hi.shape
+  ( r , Tc ) = traces.shape
+  R = zeros( (Hc, Tc) )
+  chunks = Tc / chunkSize
+  inputs = []
+  for i in range ( first, last ) :
+    for j in range( chunks ) :
+      j1 = j * chunkSize
+      j2 = (j + 1) * chunkSize
+      inputs.append( (Hi, traces, i, j1, j2) )
+  for data in pool.map(getMxCorrelationChunksPar,inputs):
+    ( i, j1, j2, cor) = data
+    R[i, j1:j2] = cor
+  return R
 
 if ( __name__ == "__main__" ) :
   # is the guess correct?
   incorrect = 1
+
+  # define multi-processing
+  num_of_workers = multiprocessing.cpu_count()
+  pool = multiprocessing.Pool(num_of_workers)
 
   while( incorrect ) :
     # Key guess
@@ -316,7 +357,9 @@ if ( __name__ == "__main__" ) :
       print "2. Hamming weighs"
       Hi = getHamming( Vi )
       print "3. Correlation"
-      Ri = getMxCorrelation( Hi, traces )
+      # Ri = getMxCorrelation( Hi, traces ) # chunks correlation without parall
+      # Ri = corPar( Hi, traces, pool ) # parallel cell by cell 2:15
+      Ri = corParChunk( Hi, traces, pool ) # parallel chunk by chunk 2:02
       print "4. Get the byte"
       b = findBit( Ri )
       hb = "%X" % b
@@ -327,16 +370,12 @@ if ( __name__ == "__main__" ) :
     # Test solution, if not working redo
     incorrect = testSol( key )
 
+    # if incorrect increase sample size and trace part
+    if incorrect == 1 :
+      AttacksNo  += attackNoInc
+      sampleSize += sampleSizeInc
+
+
 print "Key: ", key
-
-
   
-# Parallelize
 # Make faster
-
-# k = [ 0x2B, 0x7E, 0x15, 0x16, 0x28, 0xAE, 0xD2, 0xA6, \
-#       0xAB, 0xF7, 0x15, 0x88, 0x09, 0xCF, 0x4F, 0x3C ]
-# m = [ 0x32, 0x43, 0xF6, 0xA8, 0x88, 0x5A, 0x30, 0x8D, \
-#       0x31, 0x31, 0x98, 0xA2, 0xE0, 0x37, 0x07, 0x34 ]
-# c = [ 0x39, 0x25, 0x84, 0x1D, 0x02, 0xDC, 0x09, 0xFB, \
-#       0xDC, 0x11, 0x85, 0x97, 0x19, 0x6A, 0x0B, 0x32 ]
