@@ -10,14 +10,20 @@ from pprint import pprint
 
 # CONSTANTS
 #   number of attacks
-AttacksNo   = 500
+AttacksNo   = 200
 #
 # Input size in octets
 inputOctets = 32
+# hex pairs in key
+keyHexes = 16
 # Key size in bits
 keySize     = 128
 # octet size
 octet = 256
+# correlation chunk size
+chunkSize = 50
+# chunks to process
+first, last = 0, 256
 
 # Rijndael S-box
 # taken from: http://anh.cs.luc.edu/331/code/aes.py
@@ -69,18 +75,26 @@ SboxLookup = matrix([
 
 
 # interact with altered device --- testing stage
-def interactR( G ) :
+def interactR( G, limit ) :
   t = []
-  # Send      G      to   attack target.
-  for i in G :
-    target_in.write( "%X\n" % ( i ) ) ; target_in.flush()
-    target_in.write( "%X\n" % ( N ) ) ; target_in.flush()
-    target_in.write( "%X\n" % ( long(d, 2) ) ) ; target_in.flush()
-    # Receive time from attack target.
-    # time that is left is reductions in multiplications + squares + reductions in squares
-    t.append( int( target_out.readline().strip() )  )
-    target_out.readline().strip()
-  return t
+  # Send G to attack target
+  target_in.write( "%X\n" % ( G ) ) ; target_in.flush()
+  # Send key
+  I = long("7C7C7C517C7C7C7C7C7C7C517CE260CC", 16)
+  target_in.write( "%X\n" % ( I ) ) ; target_in.flush()
+  # Receive power trace from attack target
+  _traces = target_out.readline().strip()[:limit]
+
+  if _traces[-1] == ',' or _traces[-1] == ' ' :
+    _traces = _traces[:-1]
+
+  __traces = _traces.split(',')
+  traces = []
+  for i in __traces :
+    traces.append( int( i ) )
+  # Receive decryption from attack target
+  dec = target_out.readline().strip()
+  return (traces, dec)
 
 
 
@@ -109,7 +123,7 @@ def trace( plainTexts, inType, quantity, upperBound ) :
   traces = []
   if inType == 'first' :
     for i in plainTexts:
-        ( trace, cipher ) = interact( i, upperBound )
+        ( trace, cipher ) = interactR( i, upperBound )
         no = trace[0]
         traces.append( trace[ 1 : int( no * quantity ) ] )
   else :
@@ -122,7 +136,8 @@ def Sbox( plainTexts, keyHypothesis, byte ) :
   V = zeros( (len(plainTexts), len(keyHypothesis)) )
 
   # mask proper byte
-  mpl = keySize / inputOctets
+  # mpl = keySize / inputOctets
+  mpl = keySize / keyHexes
   mask = '1' * mpl
   mask = int( mask, 2 )
   mask = mask << ( byte * mpl )
@@ -132,7 +147,8 @@ def Sbox( plainTexts, keyHypothesis, byte ) :
     # extract byte
     extractedByte = i & mask
     for jc, j in enumerate(keyHypothesis) :
-      temp = ( extractedByte ^ j ) + 1 # +1 in MatLab WHY =1 !!!!!!!!!!!!!!!!!!!!
+      temp = ( extractedByte ^ j )
+      temp = temp >> ( byte * mpl )
       V[ic, jc] = SubBytes( temp )
 
   return V
@@ -157,8 +173,9 @@ def getHamming( Vi ) :
 # get Hamming weigh of a single word
 def hammingWeigh( x ) :
 
-  if x != int(x):         #
-    print "LOLOLOLO: ", x #
+  if x != int(x):
+    print "Value error: ", x
+    exit()
   x = int(x)
 
   binRep = bin( x )[2:]
@@ -171,10 +188,32 @@ def getMxCorrelation( Hi, Ti ) :
   ( r , Tc ) = Ti.shape
 
   R = zeros( (Hc, Tc) )
-  for i in range(Hc) :
-    for j in range(Tc) :
-      # R[i, j] = pearsonr( Hi[:, i], Ti[:, j] )[0]
-      R[i, j] = corrcoef( Hi[:, i].T, Ti[:, j].T )[0][1]
+
+  # for i in range(Hc) :
+  #   for j in range(Tc) :
+  #     # R[i, j] = pearsonr( Hi[:, i], Ti[:, j] )[0]
+  #     R[i, j] = corrcoef( Hi[:, i].T, Ti[:, j].T )[0][1]
+
+
+  chunks = Tc / chunkSize;
+  for i in range ( first, last ) :
+    for j in range( chunks ) :
+      j1 = j * chunkSize
+      j2 = (j + 1) * chunkSize
+
+      # print j1, "  ", j2
+
+      # print Ti[:, j1:j2 ].T
+      # print Hi[:, i     ].T 
+
+  # tmp =  corrcoef(  Ti[:, j1:j2 ].T,      Hi[:, i     ].T  )[0][1]
+  # R[i, j1:j2] = tmp[chunkSize, 0:chunkSize]
+      # key_trace(i,1+(j-1)*chunksize:j*chunksize) = cmatrix(chunksize+1,1:chunksize);
+
+      for jj in range(j1, j2) :
+        tmp =  corrcoef(  Ti[:, jj ].T,      Hi[:, i     ].T  )[0][1]
+        R[i, jj] = tmp
+
   return R
 
 # Find correct octet
@@ -192,7 +231,7 @@ def findBit( R ) :
 
   if abs(maximum) > abs(minimum) :
     return mxR
-  else if abs(maximum) < abs(minimum) :
+  elif abs(maximum) < abs(minimum) :
     return mnR
   else :
     print "values equal don't know what to do!"
@@ -201,6 +240,7 @@ def findBit( R ) :
 
 
 if ( __name__ == "__main__" ) :
+  # exp = "{0:b}".format( key )
   # Key guess
   key = ""
   # generate 128-bit strings for attacks
@@ -225,7 +265,7 @@ if ( __name__ == "__main__" ) :
   samplingType = 'first'
 
   #find the limit
-  ( tr, cr ) = interact(plainTexts[0], None)
+  ( tr, cr ) = interactR(plainTexts[0], None)
   ub = int( tr[0] * sampleSize * 5 )
 
   # extract trace entries
@@ -237,7 +277,7 @@ if ( __name__ == "__main__" ) :
 
   print "Recovering the key bit by bit..."
   # perform first S-box
-  for i in range( keySize ) :
+  for i in range( keyHexes ) :
     print "1"
     Vi = Sbox( plainTexts, keyHypothesis, i ) # i = 1
     print "2"
@@ -247,47 +287,8 @@ if ( __name__ == "__main__" ) :
     print "4"
     b = findBit( Ri )
     hb = "%X" % b
-    hb = hb.zfill(4)
+    hb = hb.zfill(2)
     key = hb + key
     print "Partial key: ", key
 
 print "Key: ", key
-
-
-  # attack until good key is found
-  # while True :
-  #   secretKey = attack( attacks, attackExp )
-  #   if decipher == encrypt(cipher, secretKey+'1', N):
-  #     LSB = '1'
-  #     break
-  #   elif decipher == encrypt(cipher, secretKey+'0', N):
-  #     LSB = '0'
-  #     break
-  #   else : # if does not fit --- try again
-  #     print "Failed to recover key --- trying again!"
-  #     print "Increasing sample space"
-  #     AttacksNo += 1000
-  #     # generate 1024-bit strings for attacks
-  #     i = 0
-  #     plainTexts = []
-  #     while( i < AttacksNo ) :
-  #       rr = random.getrandbits( 1024 )
-  #       # check whether are less than N
-  #       if rr < N :
-  #         plainTexts.append( rr )
-  #         i += 1
-  #     attacks = plainTexts
-
-  # print "Secret key in bin format: ", secretKey+LSB    
-  # print "Secret key in hex format: %X" % ( long(secretKey+LSB, 2) )
-
-
-
-
-
-
-  # Globals
-  # np0, N, rsq = 0, 0, 0
-  # publicKey[i] = long( k, 16 )
-  # exp = "{0:b}".format( publicKey[1] )
-
