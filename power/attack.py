@@ -291,10 +291,7 @@ def corPar( Hi, traces, pool ) :
 # get traces correlation chunks version with parallelization
 def getMxCorrelationChunksPar( Hitracesij1j2 ) :
   ( Hi, Ti, i, j1, j2 ) = Hitracesij1j2
-  tmp = []
-  for jj in range(j1, j2) :
-    tmp.append(  corrcoef(  Ti[:, jj ].T,      Hi[:, i     ].T  )[0][1]  )
-    # R[i, jj] = tmp
+  tmp = corrcoef( Ti[:, j1:j2 ].T, Hi[:, i     ].T )[chunkSize][:chunkSize]
   return ( i, j1, j2, tmp )
 # controller for chunks correlation
 def corParChunk( Hi, traces, pool ) :
@@ -380,5 +377,3 @@ if ( __name__ == "__main__" ) :
 
 
 print "Key: ", key
-  
-# Make faster
