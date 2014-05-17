@@ -86,12 +86,16 @@ def interactR( G ) :
 
 
 # interact with real device
-def interact( G ) :
+def interact( G, limit ) :
   t = []
   # Send G to attack target
   target_in.write( "%X\n" % ( G ) ) ; target_in.flush()
   # Receive power trace from attack target
-  _traces = target_out.readline().strip()
+  _traces = target_out.readline().strip()[:limit]
+
+  if _traces[-1] == ',' or _traces[-1] == ' ' :
+    _traces = _traces[:-1]
+
   __traces = _traces.split(',')
   traces = []
   for i in __traces :
@@ -101,11 +105,11 @@ def interact( G ) :
   return (traces, dec)
 
 # get power traces
-def trace( plainTexts, inType, quantity ) :
+def trace( plainTexts, inType, quantity, upperBound ) :
   traces = []
   if inType == 'first' :
     for i in plainTexts:
-        ( trace, cipher ) = interact( i )
+        ( trace, cipher ) = interact( i, upperBound )
         no = trace[0]
         traces.append( trace[ 1 : int( no * quantity ) ] )
   else :
@@ -179,12 +183,20 @@ def findBit( R ) :
   mx = where( R == maximum )
   mxR = mx[0].tolist()[0]
   mxC = mx[1].tolist()[0]
-  print "max: ", maximum, " R: ", mxR, " C: ", mxC
+  print "max: ", maximum, " R:  ", mxR, " C:  ", mxC
   minimum = R.min()
   mn = where( R == minimum )
   mnR = mn[0].tolist()[0]
   mnC = mn[1].tolist()[0]
-  print "min: ", minimum, " R: ", mnR, " C: ", mnC
+  print "min: ", minimum, " R:  ", mnR, "  C: ", mnC
+
+  if abs(maximum) > abs(minimum) :
+    return mxR
+  else if abs(maximum) < abs(minimum) :
+    return mnR
+  else :
+    print "values equal don't know what to do!"
+    exit()
 
 
 
@@ -211,8 +223,13 @@ if ( __name__ == "__main__" ) :
   # create sampling vector to select trace entries
   sampleSize = 0.05
   samplingType = 'first'
+
+  #find the limit
+  ( tr, cr ) = interact(plainTexts[0], None)
+  ub = int( tr[0] * sampleSize * 5 )
+
   # extract trace entries
-  traces = trace( plainTexts, samplingType, sampleSize )
+  traces = trace( plainTexts, samplingType, sampleSize, ub )
   traces = matrix( traces )
 
   # create key hypothesis
@@ -232,6 +249,7 @@ if ( __name__ == "__main__" ) :
     hb = "%X" % b
     hb = hb.zfill(4)
     key = hb + key
+    print "Partial key: ", key
 
 print "Key: ", key
 
