@@ -69,13 +69,15 @@ the style or efficiency of a solution.
 
                 Attack result : [...]
 
-[?] Stage 4 : an attack based on power consumption
+[X] Stage 4 : an attack based on power consumption
 
               - Efficiency  of attack strategy                       ( 20%)
               - Robustness  of attack strategy                       ( 20%)
               - Correctness of attack strategy                       ( 60%)
 
-                Attack result : [...]
+                Attack result : [
+                A2718D0D42F504931BB1FFC7287B07F5
+                ]
 
 [?] Stage 5 : analysis                                               (100%)
 

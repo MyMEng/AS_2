@@ -5,6 +5,8 @@ from numpy import zeros
 from numpy import matrix
 from numpy import corrcoef # from scipy.stats.stats import pearsonr
 from numpy import where
+import struct, Crypto.Cipher.AES as AES
+from struct import pack
 from pprint import pprint
 
 # CONSTANTS
@@ -28,6 +30,7 @@ first, last  = 0, 256
 # create sampling vector to select trace entries
 sampleSize   = 0.05    # 5%
 samplingType = 'first' # take first __%
+# "{0:b}".format( key )
 
 # Rijndael S-box
 # taken from: http://anh.cs.luc.edu/331/code/aes.py
@@ -234,59 +237,106 @@ def findBit( R ) :
     print "values equal don't know what to do!"
     exit()
 
+# split string into pair list
+def splitPairs( x ) :
+  y = []
+  for i in range(0, len(x), 2) :
+    y.append( int( x[i : i+2], 16 ) )
+  return y
+
+# test solution
+def testSol( key ) :
+  # Generate message
+  message =  "%X" % random.getrandbits( keySize )
+  message = message.zfill( inputOctets )
+
+  # Encrypt with the device
+  ( trace, cipher ) = interact( message, None )
+
+  # transform message, encryption and key to list format
+  m = splitPairs( message )
+  k = splitPairs( key )
+  c = splitPairs( cipher )
+
+  k = pack( 16 * "B", *k )
+  m = pack( 16 * "B", *m )
+  c = pack( 16 * "B", *c )
+
+  t = AES.new( k ).encrypt( m )
+
+  if( t == c ) :
+    print "Key recovered correctly!"
+    return 0
+  else :
+    print "Key recovery failed, trying again!"
+    return 1
+
 
 
 if ( __name__ == "__main__" ) :
-  # exp = "{0:b}".format( key )
-  # Key guess
-  key = ""
-  # generate 128-bit strings for attacks
-  plainTexts = []
-  for i in range(AttacksNo) :
-    rb = random.getrandbits( keySize )
-    plainTexts.append( rb )
-  print "Attacks Generated.\nStarting interaction."
+  # is the guess correct?
+  incorrect = 1
 
-  # Produce a sub-process representing the attack target.
-  target = subprocess.Popen( args   = sys.argv[ 1 ],
-                             stdout = subprocess.PIPE, 
-                             stdin  = subprocess.PIPE )
+  while( incorrect ) :
+    # Key guess
+    key = ""
+    # generate 128-bit strings for attacks
+    plainTexts = []
+    for i in range(AttacksNo) :
+      rb = random.getrandbits( keySize )
+      plainTexts.append( rb )
+    print "Attacks Generated.\nStarting interaction."
 
-  # Construct handles to attack target standard input and output.
-  target_out = target.stdout
-  target_in  = target.stdin
+    # Produce a sub-process representing the attack target.
+    target = subprocess.Popen( args   = sys.argv[ 1 ],
+                               stdout = subprocess.PIPE, 
+                               stdin  = subprocess.PIPE )
 
-  # Get traces---take first 5%
-  #  find the limit
-  ( tr, cr ) = interact(plainTexts[0], None)
-  ub = int( tr[0] * sampleSize * 5 )
+    # Construct handles to attack target standard input and output.
+    target_out = target.stdout
+    target_in  = target.stdin
 
-  # extract trace entries
-  traces = trace( plainTexts, samplingType, sampleSize, ub )
-  traces = matrix( traces )
+    # Get traces---take first 5%
+    #  find the limit
+    ( tr, cr ) = interact(plainTexts[0], None)
+    ub = int( tr[0] * sampleSize * 5 )
 
-  # create key hypothesis
-  keyHypothesis = range( octet )
+    # extract trace entries
+    traces = trace( plainTexts, samplingType, sampleSize, ub )
+    traces = matrix( traces )
 
-  print "Recovering the key byte by byte..."
-  # perform first S-box
-  for i in range( keyHexes ) :
-    print "1. S-box"
-    Vi = Sbox( plainTexts, keyHypothesis, i )
-    print "2. Hamming weighs"
-    Hi = getHamming( Vi )
-    print "3. Correlation"
-    Ri = getMxCorrelation( Hi, traces )
-    print "4. Get the byte"
-    b = findBit( Ri )
-    hb = "%X" % b
-    hb = hb.zfill(2)
-    key = hb + key
-    print "Partial key: ...", key
+    # create key hypothesis
+    keyHypothesis = range( octet )
 
+    print "Recovering the key byte by byte..."
+    # perform first S-box
+    for i in range( keyHexes ) :
+      print "1. S-box"
+      Vi = Sbox( plainTexts, keyHypothesis, i )
+      print "2. Hamming weighs"
+      Hi = getHamming( Vi )
+      print "3. Correlation"
+      Ri = getMxCorrelation( Hi, traces )
+      print "4. Get the byte"
+      b = findBit( Ri )
+      hb = "%X" % b
+      hb = hb.zfill(2)
+      key = hb + key
+      print "Partial key: ...", key
 
-  # Test solution if not working redo!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  # Parallelize
-  # Make faster
+    # Test solution, if not working redo
+    incorrect = testSol( key )
 
 print "Key: ", key
+
+
+  
+# Parallelize
+# Make faster
+
+# k = [ 0x2B, 0x7E, 0x15, 0x16, 0x28, 0xAE, 0xD2, 0xA6, \
+#       0xAB, 0xF7, 0x15, 0x88, 0x09, 0xCF, 0x4F, 0x3C ]
+# m = [ 0x32, 0x43, 0xF6, 0xA8, 0x88, 0x5A, 0x30, 0x8D, \
+#       0x31, 0x31, 0x98, 0xA2, 0xE0, 0x37, 0x07, 0x34 ]
+# c = [ 0x39, 0x25, 0x84, 0x1D, 0x02, 0xDC, 0x09, 0xFB, \
+#       0xDC, 0x11, 0x85, 0x97, 0x19, 0x6A, 0x0B, 0x32 ]
