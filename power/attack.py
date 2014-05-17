@@ -121,13 +121,28 @@ def Sbox( plainTexts, keyHypothesis, byte ) :
   mask = mask << ( byte * mpl )
 
   # get the state matrix
-  for i in plainTexts :
+  for ic, i in enumerate(plainTexts) :
     # extract byte
     extractedByte = i & mask
-    for j in keyHypothesis :
-      V[i][j] = extractedByte ^ j # +1 in MatLab
+    for jc, j in enumerate(keyHypothesis) :
+      temp = ( extractedByte ^ j ) + 1 # +1 in MatLab WHY =1 !!!!!!!!!!!!!!!!!!!!
+      V[ic, jc] = SubBytes( temp )
 
+  return V
 
+# define SUbbytes function---Section 5.1.1
+#  http://csrc.nist.gov/publications/fips/fips197/fips-197.pdf
+def SubBytes( x ) :
+  hexStr = "%X" % x
+  hexStr = hexStr.zfill( 2 )
+  # print "( " + hexStr[0] + " , " + hexStr[1] + " )"
+  return SboxLookup[ int(hexStr[0], 16), int(hexStr[1], 16) ]
+
+# Get Hamming weight for the matrix
+def getHamming( Vi ) :
+  Hi  = zeros()
+  pass
+  lol
 
 if ( __name__ == "__main__" ) :
   # generate 128-bit strings for attacks
@@ -156,8 +171,12 @@ if ( __name__ == "__main__" ) :
   # create key hypothesis
   keyHypothesis = range( octet )
 
+  print "Recovering the key bit by bit..."
   # perform first S-box
-  SboxOut = Sbox( plainTexts, keyHypothesis, byte )
+  for i in range( keySize ) :
+    Vi = Sbox( plainTexts, keyHypothesis, i ) # i = 1
+    Hi = getHamming( Vi )
+
 
 
 
