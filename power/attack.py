@@ -3,11 +3,14 @@ import sys, subprocess, random
 from numpy import mean
 from numpy import zeros
 from numpy import matrix
+# from scipy.stats.stats import pearsonr
+from numpy import corrcoef
+from numpy import where
 from pprint import pprint
 
 # CONSTANTS
 #   number of attacks
-AttacksNo   = 100
+AttacksNo   = 500
 #
 # Input size in octets
 inputOctets = 32
@@ -140,11 +143,54 @@ def SubBytes( x ) :
 
 # Get Hamming weight for the matrix
 def getHamming( Vi ) :
-  Hi  = zeros()
-  pass
-  lol
+  dim = Vi.shape
+  Hi  = zeros( dim )
+  for i in range( dim[0] ) :
+    for j in range( dim[1] ) :
+      Hi[i, j] = hammingWeigh( Vi[i, j] )
+  return Hi
+
+# get Hamming weigh of a single word
+def hammingWeigh( x ) :
+
+  if x != int(x):         #
+    print "LOLOLOLO: ", x #
+  x = int(x)
+
+  binRep = bin( x )[2:]
+  return binRep.count('1')
+
+# get traces correlation
+def getMxCorrelation( Hi, Ti ) :
+  # calculate correlation between all columns of *Hi* and *Ti*
+  ( r , Hc ) = Hi.shape
+  ( r , Tc ) = Ti.shape
+
+  R = zeros( (Hc, Tc) )
+  for i in range(Hc) :
+    for j in range(Tc) :
+      # R[i, j] = pearsonr( Hi[:, i], Ti[:, j] )[0]
+      R[i, j] = corrcoef( Hi[:, i].T, Ti[:, j].T )[0][1]
+  return R
+
+# Find correct octet
+def findBit( R ) :
+  maximum = R.max()
+  mx = where( R == maximum )
+  mxR = mx[0].tolist()[0]
+  mxC = mx[1].tolist()[0]
+  print "max: ", maximum, " R: ", mxR, " C: ", mxC
+  minimum = R.min()
+  mn = where( R == minimum )
+  mnR = mn[0].tolist()[0]
+  mnC = mn[1].tolist()[0]
+  print "min: ", minimum, " R: ", mnR, " C: ", mnC
+
+
 
 if ( __name__ == "__main__" ) :
+  # Key guess
+  key = ""
   # generate 128-bit strings for attacks
   plainTexts = []
   for i in range(AttacksNo) :
@@ -163,10 +209,11 @@ if ( __name__ == "__main__" ) :
 
   # Get traces --- take first 10%
   # create sampling vector to select trace entries
-  sampleSize = 0.1
+  sampleSize = 0.05
   samplingType = 'first'
   # extract trace entries
   traces = trace( plainTexts, samplingType, sampleSize )
+  traces = matrix( traces )
 
   # create key hypothesis
   keyHypothesis = range( octet )
@@ -174,10 +221,19 @@ if ( __name__ == "__main__" ) :
   print "Recovering the key bit by bit..."
   # perform first S-box
   for i in range( keySize ) :
+    print "1"
     Vi = Sbox( plainTexts, keyHypothesis, i ) # i = 1
+    print "2"
     Hi = getHamming( Vi )
+    print "3"
+    Ri = getMxCorrelation( Hi, traces )
+    print "4"
+    b = findBit( Ri )
+    hb = "%X" % b
+    hb = hb.zfill(4)
+    key = hb + key
 
-
+print "Key: ", key
 
 
   # attack until good key is found
