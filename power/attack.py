@@ -3,27 +3,31 @@ import sys, subprocess, random
 from numpy import mean
 from numpy import zeros
 from numpy import matrix
-# from scipy.stats.stats import pearsonr
-from numpy import corrcoef
+from numpy import corrcoef # from scipy.stats.stats import pearsonr
 from numpy import where
 from pprint import pprint
 
 # CONSTANTS
 #   number of attacks
-AttacksNo   = 200
+AttacksNo    = 200
 #
 # Input size in octets
-inputOctets = 32
+inputOctets  = 32
 # hex pairs in key
-keyHexes = 16
+keyHexes     = 16
 # Key size in bits
-keySize     = 128
+keySize      = 128
 # octet size
-octet = 256
+octet        = 256
 # correlation chunk size
-chunkSize = 50
+chunkSize    = 50
 # chunks to process
-first, last = 0, 256
+first, last  = 0, 256
+
+# define parameters for trace extraction
+# create sampling vector to select trace entries
+sampleSize   = 0.05    # 5%
+samplingType = 'first' # take first __%
 
 # Rijndael S-box
 # taken from: http://anh.cs.luc.edu/331/code/aes.py
@@ -71,9 +75,6 @@ SboxLookup = matrix([
   [0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16]
   ])
 
-
-
-
 # interact with altered device --- testing stage
 def interactR( G, limit ) :
   t = []
@@ -95,9 +96,6 @@ def interactR( G, limit ) :
   # Receive decryption from attack target
   dec = target_out.readline().strip()
   return (traces, dec)
-
-
-
 
 # interact with real device
 def interact( G, limit ) :
@@ -123,7 +121,7 @@ def trace( plainTexts, inType, quantity, upperBound ) :
   traces = []
   if inType == 'first' :
     for i in plainTexts:
-        ( trace, cipher ) = interactR( i, upperBound )
+        ( trace, cipher ) = interact( i, upperBound )
         no = trace[0]
         traces.append( trace[ 1 : int( no * quantity ) ] )
   else :
@@ -136,7 +134,6 @@ def Sbox( plainTexts, keyHypothesis, byte ) :
   V = zeros( (len(plainTexts), len(keyHypothesis)) )
 
   # mask proper byte
-  # mpl = keySize / inputOctets
   mpl = keySize / keyHexes
   mask = '1' * mpl
   mask = int( mask, 2 )
@@ -146,9 +143,9 @@ def Sbox( plainTexts, keyHypothesis, byte ) :
   for ic, i in enumerate(plainTexts) :
     # extract byte
     extractedByte = i & mask
+    extractedByte = extractedByte >> ( byte * mpl )
     for jc, j in enumerate(keyHypothesis) :
       temp = ( extractedByte ^ j )
-      temp = temp >> ( byte * mpl )
       V[ic, jc] = SubBytes( temp )
 
   return V
@@ -222,7 +219,7 @@ def findBit( R ) :
   mx = where( R == maximum )
   mxR = mx[0].tolist()[0]
   mxC = mx[1].tolist()[0]
-  print "max: ", maximum, " R:  ", mxR, " C:  ", mxC
+  print "max: ", maximum, "  R:  ", mxR, " C:  ", mxC
   minimum = R.min()
   mn = where( R == minimum )
   mnR = mn[0].tolist()[0]
@@ -259,13 +256,9 @@ if ( __name__ == "__main__" ) :
   target_out = target.stdout
   target_in  = target.stdin
 
-  # Get traces --- take first 10%
-  # create sampling vector to select trace entries
-  sampleSize = 0.05
-  samplingType = 'first'
-
-  #find the limit
-  ( tr, cr ) = interactR(plainTexts[0], None)
+  # Get traces---take first 5%
+  #  find the limit
+  ( tr, cr ) = interact(plainTexts[0], None)
   ub = int( tr[0] * sampleSize * 5 )
 
   # extract trace entries
@@ -275,20 +268,25 @@ if ( __name__ == "__main__" ) :
   # create key hypothesis
   keyHypothesis = range( octet )
 
-  print "Recovering the key bit by bit..."
+  print "Recovering the key byte by byte..."
   # perform first S-box
   for i in range( keyHexes ) :
-    print "1"
-    Vi = Sbox( plainTexts, keyHypothesis, i ) # i = 1
-    print "2"
+    print "1. S-box"
+    Vi = Sbox( plainTexts, keyHypothesis, i )
+    print "2. Hamming weighs"
     Hi = getHamming( Vi )
-    print "3"
+    print "3. Correlation"
     Ri = getMxCorrelation( Hi, traces )
-    print "4"
+    print "4. Get the byte"
     b = findBit( Ri )
     hb = "%X" % b
     hb = hb.zfill(2)
     key = hb + key
-    print "Partial key: ", key
+    print "Partial key: ...", key
+
+
+  # Test solution if not working redo!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  # Parallelize
+  # Make faster
 
 print "Key: ", key
