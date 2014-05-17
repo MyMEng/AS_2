@@ -7,6 +7,7 @@ from numpy import corrcoef # from scipy.stats.stats import pearsonr
 from numpy import where
 import struct, Crypto.Cipher.AES as AES
 from struct import pack
+from struct import unpack
 from pprint import pprint
 import multiprocessing
 
@@ -26,6 +27,7 @@ keySize       = 128
 octet         = 256
 # correlation chunk size
 chunkSize     = 500
+chunkSizeInc  = 50
 # chunks to process
 first, last   = 0, 256
 
@@ -35,6 +37,8 @@ sampleSize    = 0.05    # 5%
 sampleSizeInc = 0.05
 samplingType  = 'first' # take first __%
 # "{0:b}".format( key )
+# test trials
+testTrials    = 5
 
 # Rijndael S-box
 # taken from: http://anh.cs.luc.edu/331/code/aes.py
@@ -240,35 +244,52 @@ def splitPairs( x ) :
     y.append( int( x[i : i+2], 16 ) )
   return y
 
+# get back xFF
+def getHex( x ) :
+  y = []
+  for i in x :
+    y.append( ( hex( i )[2:] ).zfill( 2 ) )
+  return "".join(y)
+
 # test solution
 def testSol( key ) :
-  # Generate message
-  rbs = random.getrandbits( keySize )
-  while (rbs >= long(key, 16)) :
+  for t in range( testTrials ) :
+    # Generate message
     rbs = random.getrandbits( keySize )
-  message =  "%X" % rbs
-  message = message.zfill( inputOctets )
+    while (rbs >= long(key, 16)) :
+      rbs = random.getrandbits( keySize )
+    message =  "%X" % rbs
+    message = message.zfill( inputOctets )
 
-  # Encrypt with the device
-  ( trace, cipher ) = interact( long( message, 16 ), None )
+    # Encrypt with the device
+    ( trace, cipher ) = interact( long( message, 16 ), None )
 
-  # transform message, encryption and key to list format
-  m = splitPairs( message )
-  k = splitPairs( key )
-  c = splitPairs( cipher )
+    # transform message, encryption and key to list format
+    m = splitPairs( message )
+    k = splitPairs( key )
+    c = splitPairs( cipher )
 
-  k = pack( 16 * "B", *k )
-  m = pack( 16 * "B", *m )
-  c = pack( 16 * "B", *c )
+    k = pack( 16 * "B", *k )
+    m = pack( 16 * "B", *m )
+    c = pack( 16 * "B", *c )
 
-  t = AES.new( k ).encrypt( m )
+    t = AES.new( k ).encrypt( m )
 
-  if( t == c ) :
-    print "Key recovered correctly!"
-    return 0
-  else :
-    print "Key recovery failed, trying again!"
-    return 1
+    tt = long(cipher, 16)
+    cc = long( getHex( unpack( 16 * "B", t ) ), 16 )
+    print tt
+    print cc
+    print c
+    print t
+
+    if( t == c or tt == cc ) :
+      print "Key recovered correctly!"
+      return 0
+    else :
+      print "Trial ", t
+
+  print "Key recovery failed, trying again!" 
+  return 1
 
 # get traces correlation
 def getMxCorrelationParallel( HiTiij ) :
@@ -374,6 +395,7 @@ if ( __name__ == "__main__" ) :
     if incorrect == 1 :
       AttacksNo  += attackNoInc
       sampleSize += sampleSizeInc
+      chunkSize  -= chunkSizeInc
 
 
 print "Key: ", key
