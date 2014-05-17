@@ -25,7 +25,7 @@ keySize       = 128
 # octet size
 octet         = 256
 # correlation chunk size
-chunkSize     = 300
+chunkSize     = 500
 # chunks to process
 first, last   = 0, 256
 
@@ -243,7 +243,10 @@ def splitPairs( x ) :
 # test solution
 def testSol( key ) :
   # Generate message
-  message =  "%X" % random.getrandbits( keySize )
+  rbs = random.getrandbits( keySize )
+  while (rbs >= long(key, 16)) :
+    rbs = random.getrandbits( keySize )
+  message =  "%X" % rbs
   message = message.zfill( inputOctets )
 
   # Encrypt with the device
