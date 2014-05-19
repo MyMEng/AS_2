@@ -223,6 +223,7 @@ def byte( strin, byte ) :
 
 # multi process first set
 def mulprocset1( c, cf, pool ) :
+  sol1, sol2, sol3, sol4 = [], [], [], []
   proc1 = multiprocessing.Process( target = eqn1, args=(c,cf,sol1,) )
   proc2 = multiprocessing.Process( target = eqn2, args=(c,cf,sol2,) )
   proc3 = multiprocessing.Process( target = eqn3, args=(c,cf,sol3,) )
