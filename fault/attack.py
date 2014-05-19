@@ -390,7 +390,7 @@ def eqn3( x, xp ) :
   return sol
 
 # further reduction
-def eqnf1( x, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13 ) :
+def eqnf1( x, xp, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13 ) :
   xx = (
     int( byte( x, 1  ), 16 ),
     int( byte( x, 2  ), 16 ),
@@ -408,6 +408,24 @@ def eqnf1( x, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13 ) :
     int( byte( x, 14 ), 16 ),
     int( byte( x, 15 ), 16 ),
     int( byte( x, 16 ), 16 )
+    )
+  xxp = (
+    int( byte( xp, 1  ), 16 ),
+    int( byte( xp, 2  ), 16 ),
+    int( byte( xp, 3  ), 16 ),
+    int( byte( xp, 4  ), 16 ),
+    int( byte( xp, 5  ), 16 ),
+    int( byte( xp, 6  ), 16 ),
+    int( byte( xp, 7  ), 16 ),
+    int( byte( xp, 8  ), 16 ),
+    int( byte( xp, 9  ), 16 ),
+    int( byte( xp, 10 ), 16 ),
+    int( byte( xp, 11 ), 16 ),
+    int( byte( xp, 12 ), 16 ),
+    int( byte( xp, 13 ), 16 ),
+    int( byte( xp, 14 ), 16 ),
+    int( byte( xp, 15 ), 16 ),
+    int( byte( xp, 16 ), 16 )
     )
   sol = []
   for i in tpl1_8_11_14 :
@@ -434,14 +452,29 @@ def eqnf1( x, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13 ) :
                                     for j14 in i14 :
                                       for j15 in i15 :
                                         for j16 in i16 :
-                                          pr = eqnf2( xx, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 )
+                                          pr = eqnf2( xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 )
                                           if pr != -1 :
                                             sol.append( pr )
   return sol
 
+def eqnf2P( coef, x, k1, k2, k3 ) :
+  p1 = add( k2, k3 )
+  p2 = add( x, k1 )
+  p2 = RSubBytes( p2 )
+  p = add( p1, p2 )
+  return mul( coef, p )
+def eqnf2Q( ab, c, d, ef, g, h ) :
+  abc = add( ab, c )
+  abcd = add( abc, d )
+  abcdef = add( abcd, ef )
+  abcdefg = add( abcdef, g )
+  abcdefgh = add( abcdefg, h )
+  return abcdefgh
+
 # eqnf second part
-def eqnf2( xx, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ) :
-  a = 14*( add(RSubBytes(add(xx[0],j1)), smth) )
+def eqnf2( xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ) :
+  # eqn 1
+  a = 0
   b = 0
   c = 0
   d = 0
@@ -450,9 +483,42 @@ def eqnf2( xx, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15,
   g = 0
   h = 0
   p2   = 0
-  p1_  = 0
-  p1__ = 0
-  p3   = 0
+  # eqn 2
+  a  = eqnf2P( 9, xx[12], j13 , j13, j9 )
+  b  = eqnf2P( 14, xx[9 ], j10 , j10, j14 )
+  ab = RSubBytes( add( a, b ) )
+  c  = eqnf2P( 11, xx[6 ], j7 , j15, j11 )
+  d  = eqnf2P( 13, xx[3], j4, j16, j12 )
+  e  = eqnf2P( 9, xxp[12], j13, j13, j9 )
+  f  = eqnf2P( 14, xxp[9 ], j10 , j10, j14 )
+  ef = RSubBytes( add( e, f ) )
+  g  = eqnf2P( 11, xxp[6 ], j7, j15, j11 )
+  h  = eqnf2P( 13, xxp[3 ], j4, j16 , j12 )
+  p1_  = eqnf2Q( ab, c, d, ef, g, h )
+  # eqn 3
+  a  = eqnf2P( 13, xx[8 ], j9 , j9 , j5 )
+  b  = eqnf2P( 9 , xx[5 ], j6 , j10, j6 )
+  ab = RSubBytes( add( a, b ) )
+  c  = eqnf2P( 14, xx[2 ], j3 , j11, j7 )
+  d  = eqnf2P( 11, xx[15], j16, j12, j8 )
+  e  = eqnf2P( 13, xxp[8 ], j9, j9, j5 )
+  f  = eqnf2P( 9 , xxp[5 ], j6 , j10, j6 )
+  ef = RSubBytes( add( e, f ) )
+  g  = eqnf2P( 14, xxp[2 ], j3, j11, j7 )
+  h  = eqnf2P( 11, xxp[15], j16, j12 , j8 )
+  p1__ = eqnf2Q( ab, c, d, ef, g, h )
+  # eqn 4
+  a  = eqnf2P( 11, xx[4 ], j5 , j5 , j1 )
+  b  = eqnf2P( 13, xx[1 ], j2 , j6 , j2 )
+  ab = RSubBytes( add( a, b ) )
+  c  = eqnf2P( 9 , xx[14], j15, j7 , j3 )
+  d  = eqnf2P( 14, xx[11], j12, j8 , j4 )
+  e  = eqnf2P( 11, xxp[4], j5, j5, j1 )
+  f  = eqnf2P( 13, xxp[1 ], j2 , j6 , j2 )
+  ef = RSubBytes( add( e, f ) )
+  g  = eqnf2P( 9 , xxp[14], j15, j7 , j3 )
+  h  = eqnf2P( 14, xxp[11], j12, j8 , j4 )
+  p3 = eqnf2Q( ab, c, d, ef, g, h )
   if mul(3,p2) == mul(6,p1_) == mul(6,p1__) == mul(2,p3) :
     return ( j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 )
   else :
