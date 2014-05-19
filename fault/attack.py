@@ -524,7 +524,8 @@ def eqnf1( x, xp, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13, pool ) 
                                             # sol.append( pr )
         print "MPU"
         for data in pool.map( eqnf2, inputs ) :
-          sol.append( data )
+          if data != -1 :
+            sol.append( data )
         inputs = []
         print sol
   return sol
