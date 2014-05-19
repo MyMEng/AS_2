@@ -174,7 +174,8 @@ def mul( x, y ) :
 
 # extract byte
 def byte( strin, byte ) :
-  return strin[byte*2 : byte*2+2]
+  bt = byte - 1
+  return strin[bt*2 : bt*2+2]
 
 # define set of equations
 def eqn1( x, xp ) :
@@ -219,6 +220,179 @@ def eqn1( x, xp ) :
 
   return sol
 
+# define set of equations no. 2
+def eqn2( x, xp ) :
+  x2   = int( byte( x,  2  ), 16 )
+  xp2  = int( byte( xp, 2  ), 16 )
+  x5   = int( byte( x,  5  ), 16 )
+  xp5  = int( byte( xp, 5  ), 16 )
+  x12  = int( byte( x,  12 ), 16 )
+  xp12 = int( byte( xp, 12 ), 16 )
+  x15  = int( byte( x,  15 ), 16 )
+  xp15 = int( byte( xp, 15 ), 16 )
+
+  sol = []
+  # first condition
+  for fi in range( 256 ) :
+    k2  = []
+    k5  = []
+    k12 = []
+    k15 = []
+
+    for k in range( 256 ) :
+      if fi == add( RSubBytes( add(x2,k) ), RSubBytes( add(xp2,k) ) ) :
+        k2.append(k)
+    if k2 == [] : continue
+
+    for k in range( 256 ) :
+      if fi == add( RSubBytes( add(x5,k) ), RSubBytes( add(xp5,k) ) ) :
+        k5.append(k)
+    if k5 == [] : continue
+
+    for k in range( 256 ) :
+      if 2*fi == add( RSubBytes( add(x12,k) ), RSubBytes( add(xp12,k) ) ) :
+        k12.append(k)
+    if k12 == [] : continue
+
+    for k in range( 256 ) :
+      if 3*fi == add( RSubBytes( add(x15,k) ), RSubBytes( add(xp15,k) ) ) :
+        k15.append(k)
+    if k15 == [] : continue
+
+    sol.append( ( fi, k2, k5, k12, k15 ) )
+
+  return sol
+
+
+# define set of equations no. 3
+def eqn3( x, xp ) :
+  x3   = int( byte( x,  3  ), 16 )
+  xp3  = int( byte( xp, 3  ), 16 )
+  x6   = int( byte( x,  6  ), 16 )
+  xp6  = int( byte( xp, 6  ), 16 )
+  x9   = int( byte( x,  9  ), 16 )
+  xp9  = int( byte( xp, 9  ), 16 )
+  x16  = int( byte( x,  16 ), 16 )
+  xp16 = int( byte( xp, 16 ), 16 )
+
+  sol = []
+  # first condition
+  for fi in range( 256 ) :
+    k3  = []
+    k6  = []
+    k9 = []
+    k16 = []
+
+    for k in range( 256 ) :
+      if 2*fi == add( RSubBytes( add(x3,k) ), RSubBytes( add(xp3,k) ) ) :
+        k3.append(k)
+    if k3 == [] : continue
+
+    for k in range( 256 ) :
+      if 3*fi == add( RSubBytes( add(x6,k) ), RSubBytes( add(xp6,k) ) ) :
+        k6.append(k)
+    if k6 == [] : continue
+
+    for k in range( 256 ) :
+      if fi == add( RSubBytes( add(x9,k) ), RSubBytes( add(xp9,k) ) ) :
+        k9.append(k)
+    if k9 == [] : continue
+
+    for k in range( 256 ) :
+      if fi == add( RSubBytes( add(x16,k) ), RSubBytes( add(xp16,k) ) ) :
+        k16.append(k)
+    if k16 == [] : continue
+
+    sol.append( ( fi, k3, k6, k9, k16 ) )
+
+  return sol
+
+
+# define set of equations no. 4
+def eqn3( x, xp ) :
+  x4   = int( byte( x,  4  ), 16 )
+  xp4  = int( byte( xp, 4  ), 16 )
+  x7   = int( byte( x,  7  ), 16 )
+  xp7  = int( byte( xp, 7  ), 16 )
+  x10  = int( byte( x,  10 ), 16 )
+  xp10 = int( byte( xp, 10 ), 16 )
+  x13  = int( byte( x,  13 ), 16 )
+  xp13 = int( byte( xp, 13 ), 16 )
+
+  sol = []
+  # first condition
+  for fi in range( 256 ) :
+    k4  = []
+    k7  = []
+    k10 = []
+    k13 = []
+
+    for k in range( 256 ) :
+      if fi == add( RSubBytes( add(x4,k) ), RSubBytes( add(xp4,k) ) ) :
+        k4.append(k)
+    if k4 == [] : continue
+
+    for k in range( 256 ) :
+      if fi == add( RSubBytes( add(x7,k) ), RSubBytes( add(xp7,k) ) ) :
+        k7.append(k)
+    if k7 == [] : continue
+
+    for k in range( 256 ) :
+      if 2*fi == add( RSubBytes( add(x10,k) ), RSubBytes( add(xp10,k) ) ) :
+        k10.append(k)
+    if k10 == [] : continue
+
+    for k in range( 256 ) :
+      if 3*fi == add( RSubBytes( add(x13,k) ), RSubBytes( add(xp13,k) ) ) :
+        k13.append(k)
+    if k13 == [] : continue
+
+    sol.append( ( fi, k4, k7, k10, k13 ) )
+
+  return sol
+
+
+# further reduction
+def eqnf1( tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13 ) :
+  sol = []
+  for i in tpl1_8_11_14 :
+    ( fi, i1, i8, i11, i14 ) = i
+    for ii in tpl2_5_12_15 :
+      ( fi, i2, i5, i12, i15 ) = ii
+      for iii in tpl3_6_9_16 :
+        ( fi, i3, i6, i9, i16 ) = iii 
+        for iiii in tpl4_7_10_13 :
+          ( fi, i4, i7, i10, i13 ) = iiii
+          for j1 in i1 :
+            for j2 in i2 :
+              for j3 in i3 :
+                for j4 in i4 :
+                  for j5 in i5 :
+                    for j6 in i6 :
+                      for j7 in i7 :
+                        for j8 in i8 :
+                          for j9 in i9 :
+                            for j10 in i10 :
+                              for j11 in i11 :
+                                for j12 in i12 :
+                                  for j13 in i13 :
+                                    for j14 in i14 :
+                                      for j15 in i15 :
+                                        for j16 in i16 :
+                                          pr = eqnf2( j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 )
+                                          if pr != -1 :
+                                            sol.append( pr )
+  return sol
+# eqnf second part
+def eqnf2( j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ) :
+  p2   = 0
+  p1_  = 0
+  p1__ = 0
+  p3   = 0
+  if 3*p2 == 6*p1_ == 6*p1__ == 2*p3 :
+    return ( j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 )
+  else :
+    return -1
 
 
 
