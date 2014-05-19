@@ -602,6 +602,9 @@ def eqnf2( lot ) :
   g  = eqnf2P( 11, xxp[6 ], j7, j15, j11 )
   h  = eqnf2P( 13, xxp[3 ], j4, j16 , j12 )
   p1_  = eqnf2Q( ab, c, d, ef, g, h )
+
+  if mul(3,p2) != mul(6,p1_) : return -1
+
   # eqn 3
   a  = eqnf2P( 13, xx[8 ], j9 , j9 , j5 )
   b  = eqnf2P( 9 , xx[5 ], j6 , j10, j6 )
@@ -614,6 +617,9 @@ def eqnf2( lot ) :
   g  = eqnf2P( 14, xxp[2 ], j3, j11, j7 )
   h  = eqnf2P( 11, xxp[15], j16, j12 , j8 )
   p1__ = eqnf2Q( ab, c, d, ef, g, h )
+
+  if mul(6,p1_) != mul(6,p1__) : return -1
+
   # eqn 4
   a  = eqnf2P( 11, xx[4 ], j5 , j5 , j1 )
   b  = eqnf2P( 13, xx[1 ], j2 , j6 , j2 )
