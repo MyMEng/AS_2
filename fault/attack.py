@@ -611,7 +611,9 @@ if ( __name__ == "__main__" ) :
     print "Recovering the key..."
     # perform first S-box
     print "1. First set of eqns"
-    (s1,s2,s3,s4) = mulprocset1( c, cf, pool )
+    cc = "%X" % c
+    ccff = "%X" % cf
+    (s1,s2,s3,s4) = mulprocset1( cc, ccff, pool )
     print s1
     exit()
     print "2. Second set of eqns"
