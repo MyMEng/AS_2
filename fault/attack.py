@@ -416,7 +416,7 @@ def eqn4( x, xp, sol ) :
   return sol
 
 # further reduction
-def eqnf1( x, xp, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13 ) :
+def eqnf1( x, xp, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13, pool ) :
   xx = (
     int( byte( x, 1  ), 16 ),
     int( byte( x, 2  ), 16 ),
@@ -454,6 +454,7 @@ def eqnf1( x, xp, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13 ) :
     int( byte( xp, 16 ), 16 )
     )
   sol = []
+  inputs = []
   for i in tpl1_8_11_14 :
     ( fi, i1, i8, i11, i14 ) = i
     for ii in tpl2_5_12_15 :
@@ -479,9 +480,12 @@ def eqnf1( x, xp, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13 ) :
                                     for j14 in i14 :
                                       for j15 in i15 :
                                         for j16 in i16 :
-                                          pr = eqnf2( xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 )
-                                          if pr != -1 :
-                                            sol.append( pr )
+                                          inputs.append( ( xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ) )
+                                          # pr = eqnf2( xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 )
+                                          # if pr != -1 :
+                                            # sol.append( pr )
+  for data in pool.map( eqnf2, inputs ) :
+    sol.append( data )
   return sol
 
 def eqnf2N( coef, x, k1, k2, k3, k4, h ) :
@@ -622,7 +626,7 @@ if ( __name__ == "__main__" ) :
     (s1,s2,s3,s4) = mulprocset1( cc, ccff, pool )
     print s1
     print "2. Second set of eqns"
-    print eqnf1( cc, ccff, s1, s2, s3 , s4 )
+    print eqnf1( cc, ccff, s1, s2, s3 , s4, pool )
     exit()
     #
     # Ri = corParChunk( Hi, traces, pool ) # parallel chunk by chunk 2:02
