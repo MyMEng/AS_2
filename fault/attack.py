@@ -24,6 +24,9 @@ i, j       = 0, 0
 # key testing rounds
 testTrials = 5
 
+# key size
+keySize = 128
+
 # Rijndael S-box
 # taken from: http://anh.cs.luc.edu/331/code/aes.py
 sbox =  [0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67,
