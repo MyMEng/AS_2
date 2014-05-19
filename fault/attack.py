@@ -12,33 +12,17 @@ from pprint import pprint
 import multiprocessing
 
 # CONSTANTS
-#   number of attacks
-AttacksNo     = 200
-# attack number increment
-attackNoInc   = 50
-#
-# Input size in octets
-inputOctets   = 32
-# hex pairs in key
-keyHexes      = 16
-# Key size in bits
-keySize       = 128
-# octet size
-octet         = 256
-# correlation chunk size
-chunkSize     = 500
-chunkSizeInc  = 50
-# chunks to process
-first, last   = 0, 256
+#  *r* (represented as a decimal integer string) - round in which fault occurs
+r          = 8
+#  *f* specifies the round function in which the fault occurs
+f          = 1
+#  *p* specifies whether the fault occurs before or after execution
+p          = 0
+#  *i*, *j* specify the row and column of the state matrix which fault occurs
+i, j       = 0, 0
 
-# define parameters for trace extraction
-# create sampling vector to select trace entries
-sampleSize    = 0.05    # 5%
-sampleSizeInc = 0.05
-samplingType  = 'first' # take first __%
-# "{0:b}".format( key )
-# test trials
-testTrials    = 5
+# key testing rounds
+testTrials = 5
 
 # Rijndael S-box
 # taken from: http://anh.cs.luc.edu/331/code/aes.py
@@ -132,170 +116,112 @@ RSboxLookup = matrix([
   [0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d]
   ])
 
-# interact with altered device --- testing stage
-def interactR( G, limit ) :
-  t = []
-  # Send G to attack target
-  target_in.write( "%X\n" % ( G ) ) ; target_in.flush()
-  # Send key
-  I = long("7C7C7C517C7C7C7C7C7C7C517CE260CC", 16)
-  target_in.write( "%X\n" % ( I ) ) ; target_in.flush()
-  # Receive power trace from attack target
-  _traces = target_out.readline().strip()[:limit]
-
-  if _traces[-1] == ',' or _traces[-1] == ' ' :
-    _traces = _traces[:-1]
-
-  __traces = _traces.split(',')
-  traces = []
-  for i in __traces :
-    traces.append( int( i ) )
-  # Receive decryption from attack target
-  dec = target_out.readline().strip()
-  return (traces, dec)
-
 # interact with real device
-def interact( G, limit ) :
-  t = []
+def interact( G, S ) :
   # Send G to attack target
   target_in.write( "%X\n" % ( G ) ) ; target_in.flush()
-  # Receive power trace from attack target
-  _traces = target_out.readline().strip()[:limit]
-
-  if _traces[-1] == ',' or _traces[-1] == ' ' :
-    _traces = _traces[:-1]
-
-  __traces = _traces.split(',')
-  traces = []
-  for i in __traces :
-    traces.append( int( i ) )
+  # Send G to attack target
+  target_in.write( "%s\n" % ( S ) ) ; target_in.flush()
   # Receive decryption from attack target
   dec = target_out.readline().strip()
-  return (traces, dec)
-
-# get power traces
-def trace( plainTexts, inType, quantity, upperBound ) :
-  traces = []
-  if inType == 'first' :
-    for i in plainTexts:
-        ( trace, cipher ) = interact( i, upperBound )
-        no = trace[0]
-        traces.append( trace[ 1 : int( no * quantity ) ] )
-  else :
-    print "Not defined type."
-  return traces
-
-# get intermediate result---first S-box
-def Sbox( plainTexts, keyHypothesis, byte ) :
-  # define output
-  V = zeros( (len(plainTexts), len(keyHypothesis)) )
-
-  # mask proper byte
-  mpl = keySize / keyHexes
-  mask = '1' * mpl
-  mask = int( mask, 2 )
-  mask = mask << ( byte * mpl )
-
-  # get the state matrix
-  for ic, i in enumerate(plainTexts) :
-    # extract byte
-    extractedByte = i & mask
-    extractedByte = extractedByte >> ( byte * mpl )
-    for jc, j in enumerate(keyHypothesis) :
-      temp = ( extractedByte ^ j )
-      V[ic, jc] = SubBytes( temp )
-
-  return V
+  return dec
 
 # define SUbbytes function---Section 5.1.1
 #  http://csrc.nist.gov/publications/fips/fips197/fips-197.pdf
 def SubBytes( x ) :
   hexStr = "%X" % x
   hexStr = hexStr.zfill( 2 )
-  # print "( " + hexStr[0] + " , " + hexStr[1] + " )"
   return SboxLookup[ int(hexStr[0], 16), int(hexStr[1], 16) ]
 
-# Get Hamming weight for the matrix
-def getHamming( Vi ) :
-  dim = Vi.shape
-  Hi  = zeros( dim )
-  for i in range( dim[0] ) :
-    for j in range( dim[1] ) :
-      Hi[i, j] = hammingWeigh( Vi[i, j] )
-  return Hi
+# define SUbbytes function---Section 5.1.1
+#  http://csrc.nist.gov/publications/fips/fips197/fips-197.pdf
+def RSubBytes( x ) :
+  hexStr = "%X" % x
+  hexStr = hexStr.zfill( 2 )
+  return RSboxLookup[ int(hexStr[0], 16), int(hexStr[1], 16) ]
 
-# get Hamming weigh of a single word
-def hammingWeigh( x ) :
+# Galois addition/ subtraction of 2 1-byte(8-bit) numbers---F_8 add
+def add( x, y ) :
+  return x ^ y
+def sub( x, y ) :
+  return x ^ y
 
-  if x != int(x):
-    print "Value error: ", x
-    exit()
-  x = int(x)
+# Galois multiplication of 2 1-byte(8-bit) numbers---F_8 mul
+def mul( x, y ) :
+  # initiate result
+  res = 0
 
-  binRep = bin( x )[2:]
-  return binRep.count('1')
+  # do the loop 8 times
+  for i in range( 8 ):
+    # If the rightmost bit of y is set
+    #  exclusive OR the product res by the value of x...etc from wikipedia
+    #  http://en.wikipedia.org/wiki/Finite_field_arithmetic#Multiplication
+    if y & 1 :
+      res ^= x
 
-# get traces correlation
-def getMxCorrelation( Hi, Ti ) :
-  # calculate correlation between all columns of *Hi* and *Ti*
-  ( r , Hc ) = Hi.shape
-  ( r , Tc ) = Ti.shape
+    y >>= 1
 
-  R = zeros( (Hc, Tc) )
+    carry = x & 0b10000000
 
-  # for i in range(Hc) :
-  #   for j in range(Tc) :
-  #     # R[i, j] = pearsonr( Hi[:, i], Ti[:, j] )[0]
-  #     R[i, j] = corrcoef( Hi[:, i].T, Ti[:, j].T )[0][1]
+    x <<= 1
+    # remove leftover after shift
+    x &= 0b11111111
 
-  chunks = Tc / chunkSize;
-  for i in range ( first, last ) :
-    for j in range( chunks ) :
-      j1 = j * chunkSize
-      j2 = (j + 1) * chunkSize
+    if carry :
+      x ^= 0b00011011
 
-      # tmp =  corrcoef(  Ti[:, j1:j2 ].T,      Hi[:, i     ].T  )[0][1]
-      # R[i, j1:j2] = tmp[chunkSize, 0:chunkSize]
-      for jj in range(j1, j2) :
-        tmp =  corrcoef(  Ti[:, jj ].T,      Hi[:, i     ].T  )[0][1]
-        R[i, jj] = tmp
+  return res
 
-  return R
+# extract byte
+def byte( strin, byte ) :
+  return strin[byte*2 : byte*2+2]
 
-# Find correct octet
-def findBit( R ) :
-  maximum = R.max()
-  mx = where( R == maximum )
-  mxR = mx[0].tolist()[0]
-  mxC = mx[1].tolist()[0]
-  print "max: ", maximum, "  R:  ", mxR, " C:  ", mxC
-  minimum = R.min()
-  mn = where( R == minimum )
-  mnR = mn[0].tolist()[0]
-  mnC = mn[1].tolist()[0]
-  print "min: ", minimum, " R:  ", mnR, "  C: ", mnC
+# define set of equations
+def eqn1( x, xp ) :
+  x1   = int( byte( x,  1  ), 16 )
+  xp1  = int( byte( xp, 1  ), 16 )
+  x8   = int( byte( x,  8  ), 16 )
+  xp8  = int( byte( xp, 8  ), 16 )
+  x11  = int( byte( x,  11 ), 16 )
+  xp11 = int( byte( xp, 11 ), 16 )
+  x14  = int( byte( x,  14 ), 16 )
+  xp14 = int( byte( xp, 14 ), 16 )
 
-  if abs(maximum) > abs(minimum) :
-    return mxR
-  elif abs(maximum) < abs(minimum) :
-    return mnR
-  else :
-    print "values equal don't know what to do!"
-    exit()
+  sol = []
+  # first condition
+  for fi in range( 256 ) :
+    k1  = []
+    k8  = []
+    k11 = []
+    k14 = []
 
-# split string into pair list
-def splitPairs( x ) :
-  y = []
-  for i in range(0, len(x), 2) :
-    y.append( int( x[i : i+2], 16 ) )
-  return y
+    for k in range( 256 ) :
+      if 2*fi == add( RSubBytes( add(x1,k) ), RSubBytes( add(xp1,k) ) ) :
+        k1.append(k)
+    if k1 == [] : continue
 
-# get back xFF
-def getHex( x ) :
-  y = []
-  for i in x :
-    y.append( ( hex( i )[2:] ).zfill( 2 ) )
-  return "".join(y)
+    for k in range( 256 ) :
+      if 3*fi == add( RSubBytes( add(x8,k) ), RSubBytes( add(xp8,k) ) ) :
+        k8.append(k)
+    if k8 == [] : continue
+
+    for k in range( 256 ) :
+      if fi == add( RSubBytes( add(x11,k) ), RSubBytes( add(xp11,k) ) ) :
+        k11.append(k)
+    if k11 == [] : continue
+
+    for k in range( 256 ) :
+      if fi == add( RSubBytes( add(x14,k) ), RSubBytes( add(xp14,k) ) ) :
+        k14.append(k)
+    if k14 == [] : continue
+
+    sol.append( ( fi, k1, k8, k11, k14 ) )
+
+  return sol
+
+
+
+
 
 # test solution
 def testSol( key ) :
