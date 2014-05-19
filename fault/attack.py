@@ -197,12 +197,12 @@ def eqn1( x, xp ) :
     k14 = []
 
     for k in range( 256 ) :
-      if 2*fi == add( RSubBytes( add(x1,k) ), RSubBytes( add(xp1,k) ) ) :
+      if mul(2,fi) == add( RSubBytes( add(x1,k) ), RSubBytes( add(xp1,k) ) ) :
         k1.append(k)
     if k1 == [] : continue
 
     for k in range( 256 ) :
-      if 3*fi == add( RSubBytes( add(x8,k) ), RSubBytes( add(xp8,k) ) ) :
+      if mul(3,fi) == add( RSubBytes( add(x8,k) ), RSubBytes( add(xp8,k) ) ) :
         k8.append(k)
     if k8 == [] : continue
 
@@ -250,12 +250,12 @@ def eqn2( x, xp ) :
     if k5 == [] : continue
 
     for k in range( 256 ) :
-      if 2*fi == add( RSubBytes( add(x12,k) ), RSubBytes( add(xp12,k) ) ) :
+      if mul(2,fi) == add( RSubBytes( add(x12,k) ), RSubBytes( add(xp12,k) ) ) :
         k12.append(k)
     if k12 == [] : continue
 
     for k in range( 256 ) :
-      if 3*fi == add( RSubBytes( add(x15,k) ), RSubBytes( add(xp15,k) ) ) :
+      if mul(3,fi) == add( RSubBytes( add(x15,k) ), RSubBytes( add(xp15,k) ) ) :
         k15.append(k)
     if k15 == [] : continue
 
@@ -284,12 +284,12 @@ def eqn3( x, xp ) :
     k16 = []
 
     for k in range( 256 ) :
-      if 2*fi == add( RSubBytes( add(x3,k) ), RSubBytes( add(xp3,k) ) ) :
+      if mul(2,fi) == add( RSubBytes( add(x3,k) ), RSubBytes( add(xp3,k) ) ) :
         k3.append(k)
     if k3 == [] : continue
 
     for k in range( 256 ) :
-      if 3*fi == add( RSubBytes( add(x6,k) ), RSubBytes( add(xp6,k) ) ) :
+      if mul(3,fi) == add( RSubBytes( add(x6,k) ), RSubBytes( add(xp6,k) ) ) :
         k6.append(k)
     if k6 == [] : continue
 
@@ -338,12 +338,12 @@ def eqn3( x, xp ) :
     if k7 == [] : continue
 
     for k in range( 256 ) :
-      if 2*fi == add( RSubBytes( add(x10,k) ), RSubBytes( add(xp10,k) ) ) :
+      if mul(2,fi) == add( RSubBytes( add(x10,k) ), RSubBytes( add(xp10,k) ) ) :
         k10.append(k)
     if k10 == [] : continue
 
     for k in range( 256 ) :
-      if 3*fi == add( RSubBytes( add(x13,k) ), RSubBytes( add(xp13,k) ) ) :
+      if mul(3,fi) == add( RSubBytes( add(x13,k) ), RSubBytes( add(xp13,k) ) ) :
         k13.append(k)
     if k13 == [] : continue
 
@@ -353,7 +353,25 @@ def eqn3( x, xp ) :
 
 
 # further reduction
-def eqnf1( tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13 ) :
+def eqnf1( x, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13 ) :
+  xx = (
+    int( byte( x, 1  ), 16 ),
+    int( byte( x, 2  ), 16 ),
+    int( byte( x, 3  ), 16 ),
+    int( byte( x, 4  ), 16 ),
+    int( byte( x, 5  ), 16 ),
+    int( byte( x, 6  ), 16 ),
+    int( byte( x, 7  ), 16 ),
+    int( byte( x, 8  ), 16 ),
+    int( byte( x, 9  ), 16 ),
+    int( byte( x, 10 ), 16 ),
+    int( byte( x, 11 ), 16 ),
+    int( byte( x, 12 ), 16 ),
+    int( byte( x, 13 ), 16 ),
+    int( byte( x, 14 ), 16 ),
+    int( byte( x, 15 ), 16 ),
+    int( byte( x, 16 ), 16 )
+    )
   sol = []
   for i in tpl1_8_11_14 :
     ( fi, i1, i8, i11, i14 ) = i
@@ -379,17 +397,25 @@ def eqnf1( tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13 ) :
                                     for j14 in i14 :
                                       for j15 in i15 :
                                         for j16 in i16 :
-                                          pr = eqnf2( j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 )
+                                          pr = eqnf2( xx, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 )
                                           if pr != -1 :
                                             sol.append( pr )
   return sol
 # eqnf second part
-def eqnf2( j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ) :
+def eqnf2( xx, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ) :
+  a = 14*( add(RSubBytes(add(xx[0],j1)), smth) )
+  b = 0
+  c = 0
+  d = 0
+  e = 0
+  f = 0
+  g = 0
+  h = 0
   p2   = 0
   p1_  = 0
   p1__ = 0
   p3   = 0
-  if 3*p2 == 6*p1_ == 6*p1__ == 2*p3 :
+  if mul(3,p2) == mul(6,p1_) == mul(6,p1__) == mul(2,p3) :
     return ( j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 )
   else :
     return -1
