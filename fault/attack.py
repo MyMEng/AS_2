@@ -164,7 +164,7 @@ def interact( G, S ) :
   target_in.write( "%s\n" % ( S ) ) ; target_in.flush()
   # Receive decryption from attack target
   dec = target_out.readline().strip()
-  return dec
+  return int( dec, 16 )
 
 # define SUbbytes function---Section 5.1.1
 #  http://csrc.nist.gov/publications/fips/fips197/fips-197.pdf
@@ -217,8 +217,25 @@ def byte( strin, byte ) :
   bt = byte - 1
   return strin[bt*2 : bt*2+2]
 
+
+# multi process first set
+def mulprocset1( c, cf, pool ) :
+  proc1 = multiprocessing.Process( target = eqn1(c, cf), args=(c,cf,sol1,) )
+  proc2 = multiprocessing.Process( target = eqn2(c, cf), args=(c,cf,sol2,) )
+  proc3 = multiprocessing.Process( target = eqn3(c, cf), args=(c,cf,sol3,) )
+  proc4 = multiprocessing.Process( target = eqn4(c, cf), args=(c,cf,sol4,) )
+  proc1.start()
+  proc2.start()
+  proc3.start()
+  proc4.start()
+  proc1.join()
+  proc2.join()
+  proc3.join()
+  proc4.join()
+  return ( sol1, sol2, sol3, sol4 )
+
 # define set of equations
-def eqn1( x, xp ) :
+def eqn1( x, xp, sol ) :
   x1   = int( byte( x,  1  ), 16 )
   xp1  = int( byte( xp, 1  ), 16 )
   x8   = int( byte( x,  8  ), 16 )
@@ -261,7 +278,7 @@ def eqn1( x, xp ) :
   return sol
 
 # define set of equations no. 2
-def eqn2( x, xp ) :
+def eqn2( x, xp, sol ) :
   x2   = int( byte( x,  2  ), 16 )
   xp2  = int( byte( xp, 2  ), 16 )
   x5   = int( byte( x,  5  ), 16 )
@@ -304,7 +321,7 @@ def eqn2( x, xp ) :
   return sol
 
 # define set of equations no. 3
-def eqn3( x, xp ) :
+def eqn3( x, xp, sol ) :
   x3   = int( byte( x,  3  ), 16 )
   xp3  = int( byte( xp, 3  ), 16 )
   x6   = int( byte( x,  6  ), 16 )
@@ -347,7 +364,7 @@ def eqn3( x, xp ) :
   return sol
 
 # define set of equations no. 4
-def eqn3( x, xp ) :
+def eqn4( x, xp, sol ) :
   x4   = int( byte( x,  4  ), 16 )
   xp4  = int( byte( xp, 4  ), 16 )
   x7   = int( byte( x,  7  ), 16 )
@@ -457,6 +474,31 @@ def eqnf1( x, xp, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13 ) :
                                             sol.append( pr )
   return sol
 
+def eqnf2N( coef, x, k1, k2, k3, k4, h ) :
+  p1 = add( x, k1 )
+  p1 = RSubBytes( p1 )
+
+  p2 = add( k3, k4 )
+  p2 = SubBytes( p2 )
+
+  p3 = add( k2, p2 )
+  p3 = add( p3, h )
+
+  p = add( p1, p3 )
+  return mul( coef, p )
+
+def eqnf2O( coef, x, k1, k2, k3, k4 ) :
+  p1 = add( x, k1 )
+  p1 = RSubBytes( p1 )
+
+  p2 = add( k3, k4 )
+  p2 = SubBytes( p2 )
+
+  p3 = add( k2, p2 )
+
+  p = add( p1, p3 )
+  return mul( coef, p )
+
 def eqnf2P( coef, x, k1, k2, k3 ) :
   p1 = add( k2, k3 )
   p2 = add( x, k1 )
@@ -474,15 +516,24 @@ def eqnf2Q( ab, c, d, ef, g, h ) :
 # eqnf second part
 def eqnf2( xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ) :
   # eqn 1
-  a = 0
-  b = 0
-  c = 0
-  d = 0
-  e = 0
-  f = 0
-  g = 0
-  h = 0
-  p2   = 0
+  a = eqnf2N( 14, xx[0], j1, j1, j14, j10, h10 )
+  b = eqnf2O( 11, xx[13], j14, j2, j15, j11 )
+  c = eqnf2O( 13, xx[10], j11, j3, j16, j12 )
+  d = eqnf2O( 9 , xx[7 ], j8 , j4, j13, j9  )
+  ab = add( a, b )
+  abc = add( ab, c )
+  abcd = add( abc, d )
+  part1 = RSubBytes( abcd )
+  #####
+  e = eqnf2N( 14, xxp[0], j1, j1, j14, j10, h10 )
+  f = eqnf2O( 11, xxp[13], j14, j2, j15, j11 )
+  g = eqnf2O( 13, xxp[10], j11, j3, j16, j12 )
+  h = eqnf2O( 9 , xxp[7 ], j8 , j4, j13, j9  )
+  ef = add( e, f )
+  efg = add( ef, g )
+  efgh = add( efg, h )
+  part2 = RSubBytes( efgh )
+  p2   = add( part1, part2 )
   # eqn 2
   a  = eqnf2P( 9, xx[12], j13 , j13, j9 )
   b  = eqnf2P( 14, xx[9 ], j10 , j10, j14 )
@@ -534,13 +585,8 @@ if ( __name__ == "__main__" ) :
   pool = multiprocessing.Pool(num_of_workers)
 
   while( incorrect ) :
-    # Key guess
-    key = ""
     # generate 128-bit strings for attacks
-    plainTexts = []
-    for i in range(AttacksNo) :
-      rb = random.getrandbits( keySize )
-      plainTexts.append( rb )
+    rb = random.getrandbits( keySize )
     print "Attacks Generated.\nStarting interaction."
 
     # Produce a sub-process representing the attack target.
@@ -554,42 +600,22 @@ if ( __name__ == "__main__" ) :
 
     # Get traces---take first 5%
     #  find the limit
-    ( tr, cr ) = interact(plainTexts[0], None)
-    ub = int( tr[0] * sampleSize * 5 )
+    specifier = str(r) + ',' + str(f) + ',' + str(p) + ',' + str(i) + ',' + str(j)
+    c = interact( rb, specifier )
+    cf = interact( rb, '' )
 
-    # extract trace entries
-    traces = trace( plainTexts, samplingType, sampleSize, ub )
-    traces = matrix( traces )
-
-    # create key hypothesis
-    keyHypothesis = range( octet )
-
-    print "Recovering the key byte by byte..."
+    print "Recovering the key..."
     # perform first S-box
-    for i in range( keyHexes ) :
-      print "1. S-box"
-      Vi = Sbox( plainTexts, keyHypothesis, i )
-      print "2. Hamming weighs"
-      Hi = getHamming( Vi )
-      print "3. Correlation"
-      # Ri = getMxCorrelation( Hi, traces ) # chunks correlation without parall
-      # Ri = corPar( Hi, traces, pool ) # parallel cell by cell 2:15
-      Ri = corParChunk( Hi, traces, pool ) # parallel chunk by chunk 2:02
-      print "4. Get the byte"
-      b = findBit( Ri )
-      hb = "%X" % b
-      hb = hb.zfill(2)
-      key = hb + key
-      print "Partial key: ...", key
+    print "1. First set of eqns"
+    (s1,s2,s3,s4) = mulprocset1( c, cf, pool )
+    print s1
+    exit()
+    print "2. Second set of eqns"
+    #
+    Ri = corParChunk( Hi, traces, pool ) # parallel chunk by chunk 2:02
 
     # Test solution, if not working redo
     incorrect = testSol( key )
-
-    # if incorrect increase sample size and trace part
-    if incorrect == 1 :
-      AttacksNo  += attackNoInc
-      sampleSize += sampleSizeInc
-      chunkSize  -= chunkSizeInc
 
 
 print "Key: ", key
