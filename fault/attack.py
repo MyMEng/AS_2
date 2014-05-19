@@ -568,7 +568,8 @@ def eqnf2Q( ab, c, d, ef, g, h ) :
   return abcdefgh
 
 # eqnf second part
-def eqnf2( xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ) :
+def eqnf2( lot ) :
+  ( xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ) = lot
   # eqn 1
   a = eqnf2N( 14, xx[0], j1, j1, j14, j10, Rcon[10] ) # h
   b = eqnf2O( 11, xx[13], j14, j2, j15, j11 )
