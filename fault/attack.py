@@ -525,7 +525,7 @@ def eqnf2Q( ab, c, d, ef, g, h ) :
 # eqnf second part
 def eqnf2( xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ) :
   # eqn 1
-  a = eqnf2N( 14, xx[0], j1, j1, j14, j10, h10 )
+  a = eqnf2N( 14, xx[0], j1, j1, j14, j10, j10 ) # h
   b = eqnf2O( 11, xx[13], j14, j2, j15, j11 )
   c = eqnf2O( 13, xx[10], j11, j3, j16, j12 )
   d = eqnf2O( 9 , xx[7 ], j8 , j4, j13, j9  )
@@ -534,7 +534,7 @@ def eqnf2( xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14,
   abcd = add( abc, d )
   part1 = RSubBytes( abcd )
   #####
-  e = eqnf2N( 14, xxp[0], j1, j1, j14, j10, h10 )
+  e = eqnf2N( 14, xxp[0], j1, j1, j14, j10, j10 ) # h
   f = eqnf2O( 11, xxp[13], j14, j2, j15, j11 )
   g = eqnf2O( 13, xxp[10], j11, j3, j16, j12 )
   h = eqnf2O( 9 , xxp[7 ], j8 , j4, j13, j9  )
@@ -620,10 +620,11 @@ if ( __name__ == "__main__" ) :
     ccff = "%X" % cf
     (s1,s2,s3,s4) = mulprocset1( cc, ccff, pool )
     print s1
-    exit()
     print "2. Second set of eqns"
+    print eqnf1( cc, ccff, s1, s2, s3 , s4 )
+    exit()
     #
-    Ri = corParChunk( Hi, traces, pool ) # parallel chunk by chunk 2:02
+    # Ri = corParChunk( Hi, traces, pool ) # parallel chunk by chunk 2:02
 
     # Test solution, if not working redo
     incorrect = testSol( key )
