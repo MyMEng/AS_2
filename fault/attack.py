@@ -116,6 +116,46 @@ RSboxLookup = matrix([
   [0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d]
   ])
 
+# test solution
+def testSol( key ) :
+  for t in range( testTrials ) :
+    # Generate message
+    rbs = random.getrandbits( keySize )
+    while (rbs >= long(key, 16)) :
+      rbs = random.getrandbits( keySize )
+    message =  "%X" % rbs
+    message = message.zfill( inputOctets )
+
+    # Encrypt with the device
+    ( trace, cipher ) = interact( long( message, 16 ), None )
+
+    # transform message, encryption and key to list format
+    m = splitPairs( message )
+    k = splitPairs( key )
+    c = splitPairs( cipher )
+
+    k = pack( 16 * "B", *k )
+    m = pack( 16 * "B", *m )
+    c = pack( 16 * "B", *c )
+
+    t = AES.new( k ).encrypt( m )
+
+    tt = long(cipher, 16)
+    cc = long( getHex( unpack( 16 * "B", t ) ), 16 )
+    print tt
+    print cc
+    print c
+    print t
+
+    if( t == c or tt == cc ) :
+      print "Key recovered correctly!"
+      return 0
+    else :
+      print "Trial ", t
+
+  print "Key recovery failed, trying again!" 
+  return 1
+
 # interact with real device
 def interact( G, S ) :
   # Send G to attack target
@@ -263,7 +303,6 @@ def eqn2( x, xp ) :
 
   return sol
 
-
 # define set of equations no. 3
 def eqn3( x, xp ) :
   x3   = int( byte( x,  3  ), 16 )
@@ -307,7 +346,6 @@ def eqn3( x, xp ) :
 
   return sol
 
-
 # define set of equations no. 4
 def eqn3( x, xp ) :
   x4   = int( byte( x,  4  ), 16 )
@@ -350,7 +388,6 @@ def eqn3( x, xp ) :
     sol.append( ( fi, k4, k7, k10, k13 ) )
 
   return sol
-
 
 # further reduction
 def eqnf1( x, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13 ) :
@@ -401,6 +438,7 @@ def eqnf1( x, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13 ) :
                                           if pr != -1 :
                                             sol.append( pr )
   return sol
+
 # eqnf second part
 def eqnf2( xx, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ) :
   a = 14*( add(RSubBytes(add(xx[0],j1)), smth) )
@@ -420,88 +458,6 @@ def eqnf2( xx, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15,
   else :
     return -1
 
-
-
-
-# test solution
-def testSol( key ) :
-  for t in range( testTrials ) :
-    # Generate message
-    rbs = random.getrandbits( keySize )
-    while (rbs >= long(key, 16)) :
-      rbs = random.getrandbits( keySize )
-    message =  "%X" % rbs
-    message = message.zfill( inputOctets )
-
-    # Encrypt with the device
-    ( trace, cipher ) = interact( long( message, 16 ), None )
-
-    # transform message, encryption and key to list format
-    m = splitPairs( message )
-    k = splitPairs( key )
-    c = splitPairs( cipher )
-
-    k = pack( 16 * "B", *k )
-    m = pack( 16 * "B", *m )
-    c = pack( 16 * "B", *c )
-
-    t = AES.new( k ).encrypt( m )
-
-    tt = long(cipher, 16)
-    cc = long( getHex( unpack( 16 * "B", t ) ), 16 )
-    print tt
-    print cc
-    print c
-    print t
-
-    if( t == c or tt == cc ) :
-      print "Key recovered correctly!"
-      return 0
-    else :
-      print "Trial ", t
-
-  print "Key recovery failed, trying again!" 
-  return 1
-
-# get traces correlation
-def getMxCorrelationParallel( HiTiij ) :
-  Hi, Ti, i, j = HiTiij
-  return ( i, j, corrcoef( Hi[:, i].T, Ti[:, j].T )[0][1] )
-# par controller
-def corPar( Hi, traces, pool ) :
-  ( r , Hc ) = Hi.shape
-  ( r , Tc ) = traces.shape
-  Ri = zeros( (Hc, Tc) )
-  inputs = []
-  for x in range(Hc) :
-    for y in range(Tc) :
-      inputs.append( (Hi, traces, x, y) )
-  for data in pool.map(getMxCorrelationParallel,inputs):
-    ( i, j, cor) = data
-    Ri[i, j] = cor
-  return Ri
-
-# get traces correlation chunks version with parallelization
-def getMxCorrelationChunksPar( Hitracesij1j2 ) :
-  ( Hi, Ti, i, j1, j2 ) = Hitracesij1j2
-  tmp = corrcoef( Ti[:, j1:j2 ].T, Hi[:, i     ].T )[chunkSize][:chunkSize]
-  return ( i, j1, j2, tmp )
-# controller for chunks correlation
-def corParChunk( Hi, traces, pool ) :
-  ( r , Hc ) = Hi.shape
-  ( r , Tc ) = traces.shape
-  R = zeros( (Hc, Tc) )
-  chunks = Tc / chunkSize
-  inputs = []
-  for i in range ( first, last ) :
-    for j in range( chunks ) :
-      j1 = j * chunkSize
-      j2 = (j + 1) * chunkSize
-      inputs.append( (Hi, traces, i, j1, j2) )
-  for data in pool.map(getMxCorrelationChunksPar,inputs):
-    ( i, j1, j2, cor) = data
-    R[i, j1:j2] = cor
-  return R
 
 if ( __name__ == "__main__" ) :
   # is the guess correct?
