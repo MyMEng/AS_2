@@ -236,11 +236,12 @@ def mulprocset1( c, cf, pool ) :
   # proc2.join()
   # proc3.join()
   # proc4.join()
-  eqn1(c,cf,sol1)
-  eqn2(c,cf,sol2)
-  eqn3(c,cf,sol3)
-  eqn4(c,cf,sol4)
-  return ( sol1, sol2, sol3, sol4 )
+  s1 = eqn1(c,cf,sol1)
+  s2 = eqn2(c,cf,sol2)
+  s3 = eqn3(c,cf,sol3)
+  s4 = eqn4(c,cf,sol4)
+  # return ( sol1, sol2, sol3, sol4 )
+  return ( s1, s2, s3, s4 )
 
 # define set of equations
 def eqn1( x, xp, sol ) :
