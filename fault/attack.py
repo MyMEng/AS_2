@@ -157,6 +157,82 @@ RconLookup = matrix([
   [0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a, 0x74, 0xe8, 0xcb, 0x8d]
   ])
 
+# recover keys
+def recKey( ls ) :
+  keys = []
+  for i in ls :
+    j = invKey( i )
+    keys.append( listToKey( j ) )
+  return keys
+
+# list to key
+def listToKey( ls ) :
+  key = ""
+  for i in ls :
+    l = "%X" % i
+    l = l.zfill( 2 )
+    key += l
+  return key
+
+# convert tuple to list
+def tplToList( tpl ) :
+  s = []
+  for i in range( len( tpl ) ) :
+    s.append( tpl[i] )
+  return s
+
+# revert key
+def invKey( s ) :
+  lo = tplToList( s )
+  print lo
+  for i in reversed(range( 1, 11 )) :
+    invKey_( lo, Rcon[i] )
+  return lo
+def invKey_( s, Rc ) :
+  s[15] = s[15] ^ s[11]
+  s[14] = s[14] ^ s[10]
+  s[13] = s[13] ^ s[9 ]
+  s[12] = s[12] ^ s[8 ]
+  s[11] = s[11] ^ s[7 ]
+  s[10] = s[10] ^ s[6 ]
+  s[9 ] = s[9 ] ^ s[5 ]
+  s[8 ] = s[8 ] ^ s[4 ]
+  s[7 ] = s[7 ] ^ s[3 ]
+  s[6 ] = s[6 ] ^ s[2 ]
+  s[5 ] = s[5 ] ^ s[1 ]
+  s[4 ] = s[4 ] ^ s[0 ]
+  s[3 ] = s[3 ] ^ SubBytes( s[12] )
+  s[2 ] = s[2 ] ^ SubBytes( s[15] )
+  s[1 ] = s[1 ] ^ SubBytes( s[14] )
+  s[0 ] = s[0 ] ^ SubBytes( s[13] ) ^ Rc
+
+
+# void aes_enc_keyexp_step_inv( uint8_t* k, const uint8_t* r, uint8_t rc ) 
+# {
+#   k[ 15 ] = r[ 15 ] ^ r[ 11 ];
+#   k[ 14 ] = r[ 14 ] ^ r[ 10 ];
+#   k[ 13 ] = r[ 13 ] ^ r[ 9 ];
+#   k[ 12 ] = r[ 12 ] ^ r[ 8 ];
+#   k[ 11 ] = r[ 11 ] ^ r[ 7 ];
+#   k[ 10 ] = r[ 10 ] ^ r[ 6 ];
+#   k[ 9 ] =  r[ 9 ]  ^ r[ 5 ];
+#   k[ 8 ] =  r[ 8 ]  ^ r[ 4 ];
+#   k[ 7 ] =  r[ 7 ]  ^ r[ 3 ];
+#   k[ 6 ] =  r[ 6 ]  ^ r[ 2 ];
+#   k[ 5 ] =  r[ 5 ]  ^ r[ 1 ];
+#   k[ 4 ] =  r[ 4 ]  ^ r[ 0 ];
+#   k[ 3 ] =  r[ 3 ]  ^ S[k[ 12 ]];
+#   k[ 2 ] =  r[ 2 ]  ^ S[k[ 15 ]];
+#   k[ 1 ] =  r[ 1 ]  ^ S[k[ 14 ]];
+#   k[ 0 ] =  r[ 0 ]  ^ S[k[ 13 ]] ^ rc;
+# }
+# void aes_block::aes_key_exp_inv(int start /* = 10 */, int end /* = 1 */)
+# {
+#   // Do key expansion 10 times.. backwards
+#   for(int i = start; i > end; --i)
+#     aes_enc_keyexp_step_inv(this->bytes, this->bytes, Rcon[i]);
+# }
+
 # test solution
 def testSol( key ) :
   for t in range( testTrials ) :
