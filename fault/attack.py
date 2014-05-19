@@ -522,10 +522,10 @@ def eqnf1( x, xp, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13, pool ) 
                                           # pr = eqnf2( xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 )
                                           # if pr != -1 :
                                             # sol.append( pr )
-      print "MPU"
-      for data in pool.map( eqnf2, inputs ) :
-        sol.append( data )
-      inputs = []
+          print "MPU"
+          for data in pool.map( eqnf2, inputs ) :
+            sol.append( data )
+          inputs = []
   return sol
 
 def eqnf2N( coef, x, k1, k2, k3, k4, h ) :
