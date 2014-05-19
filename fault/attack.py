@@ -462,6 +462,7 @@ def eqnf1( x, xp, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13 ) :
         ( fi, i3, i6, i9, i16 ) = iii 
         for iiii in tpl4_7_10_13 :
           ( fi, i4, i7, i10, i13 ) = iiii
+          print "Bang!"
           for j1 in i1 :
             for j2 in i2 :
               for j3 in i3 :
