@@ -3,13 +3,20 @@ import sys, subprocess, random
 from numpy import mean
 from numpy import zeros
 from numpy import matrix
-from numpy import corrcoef # from scipy.stats.stats import pearsonr
 from numpy import where
 import struct, Crypto.Cipher.AES as AES
 from struct import pack
 from struct import unpack
 from pprint import pprint
 import multiprocessing
+
+a = []
+for i in range(0, 32, 2):
+  x = "13111d7fe3944a17f307a78b4d2b30c5"[i: i+2]
+  print "lo: ", x
+  print int(x, 16)
+  a.append( int(x, 16) )
+
 
 # CONSTANTS
 #  *r* (represented as a decimal integer string) - round in which fault occurs
@@ -275,27 +282,35 @@ def testSol( key ) :
 
 # interact with real device
 def interact( G, S ) :
-  # Send G to attack target
-  target_in.write( "%X\n" % ( G ) ) ; target_in.flush()
+  print "%X\n" % ( G )
+  print "%s\n" % ( S )
+
   # Send G to attack target
   target_in.write( "%s\n" % ( S ) ) ; target_in.flush()
+
+  # Send G to attack target
+  inputmessage = "%X" % ( G )
+  inputmessage = inputmessage.zfill( 32 )
+  inputmessage += '\n'
+  target_in.write( inputmessage ) ; target_in.flush()
+
   # Receive decryption from attack target
   dec = target_out.readline().strip()
+  print "Interact dec"
+  print dec
   return int( dec, 16 )
 
 # define SUbbytes function---Section 5.1.1
 #  http://csrc.nist.gov/publications/fips/fips197/fips-197.pdf
 def SubBytes( x ) :
-  hexStr = "%X" % x
-  hexStr = hexStr.zfill( 2 )
-  return SboxLookup[ int(hexStr[0], 16), int(hexStr[1], 16) ]
+  return sbox[x]
+  # return SboxLookup[ (x&0xf0)>>4, (x&0x0f) ]
 
 # define SUbbytes function---Section 5.1.1
 #  http://csrc.nist.gov/publications/fips/fips197/fips-197.pdf
 def RSubBytes( x ) :
-  hexStr = "%X" % x
-  hexStr = hexStr.zfill( 2 )
-  return RSboxLookup[ int(hexStr[0], 16), int(hexStr[1], 16) ]
+  return rsbox[x]
+  # return RSboxLookup[ (x&0xf0)>>4, (x&0x0f) ]
 
 # Galois addition/ subtraction of 2 1-byte(8-bit) numbers---F_8 add
 def add( x, y ) :
@@ -359,6 +374,8 @@ def mulprocset1( c, cf, pool ) :
 
 # define set of equations
 def eqn1( x, xp, sol ) :
+  print x
+  print xp
   x1   = int( byte( x,  1  ), 16 )
   xp1  = int( byte( xp, 1  ), 16 )
   x8   = int( byte( x,  8  ), 16 )
@@ -367,10 +384,11 @@ def eqn1( x, xp, sol ) :
   xp11 = int( byte( xp, 11 ), 16 )
   x14  = int( byte( x,  14 ), 16 )
   xp14 = int( byte( xp, 14 ), 16 )
+  print "%X" % x14
 
   sol = []
   # first condition
-  for fi in range( 256 ) :
+  for fi in range( 1, 256 ) :
     k1  = []
     k8  = []
     k11 = []
@@ -413,7 +431,7 @@ def eqn2( x, xp, sol ) :
 
   sol = []
   # first condition
-  for fi in range( 256 ) :
+  for fi in range( 1, 256 ) :
     k2  = []
     k5  = []
     k12 = []
@@ -439,6 +457,7 @@ def eqn2( x, xp, sol ) :
         k15.append(k)
     if k15 == [] : continue
 
+    print fi, k2, k5, k12, k15
     sol.append( ( fi, k2, k5, k12, k15 ) )
 
   return sol
@@ -456,7 +475,7 @@ def eqn3( x, xp, sol ) :
 
   sol = []
   # first condition
-  for fi in range( 256 ) :
+  for fi in range( 1, 256 ) :
     k3  = []
     k6  = []
     k9 = []
@@ -499,7 +518,7 @@ def eqn4( x, xp, sol ) :
 
   sol = []
   # first condition
-  for fi in range( 256 ) :
+  for fi in range( 1, 256 ) :
     k4  = []
     k7  = []
     k10 = []
@@ -594,16 +613,16 @@ def eqnf1( x, xp, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13, pool ) 
                                     for j14 in i14 :
                                       for j15 in i15 :
                                         for j16 in i16 :
-                                          inputs.append( ( xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ) )
-                                          # pr = eqnf2( xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 )
-                                          # if pr != -1 :
-                                            # sol.append( pr )
-        print "MPU"
-        for data in pool.map( eqnf2, inputs ) :
-          if data != -1 :
-            sol.append( data )
-        inputs = []
-        print sol
+                                          # inputs.append( ( xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ) )
+                                          pr = eqnf2( (xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ))
+                                          if pr != -1 :
+                                            sol.append( pr )
+        # print "MPU"
+        # for data in pool.map( eqnf2, inputs ) :
+          # if data != -1 :
+            # sol.append( data )
+        # inputs = []
+        # print sol
   return sol
 
 def eqnf2N( coef, x, k1, k2, k3, k4, h ) :
@@ -709,6 +728,9 @@ def eqnf2( lot ) :
   g  = eqnf2P( 9 , xxp[14], j15, j7 , j3 )
   h  = eqnf2P( 14, xxp[11], j12, j8 , j4 )
   p3 = eqnf2Q( ab, c, d, ef, g, h )
+
+# przelec przez f
+
   if mul(3,p2) == mul(6,p1_) == mul(6,p1__) == mul(2,p3) :
     return ( j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 )
   else :
@@ -742,13 +764,15 @@ if ( __name__ == "__main__" ) :
     specifier = str(r) + ',' + str(f) + ',' + str(p) + ',' + str(i) + ',' + str(j)
     c = interact( rb, specifier )
     cf = interact( rb, '' )
+    print "%X" % c 
+    print "%X" % cf 
 
     print "Recovering the key..."
     # perform first S-box
     print "1. First set of eqns"
     cc = "%X" % c
     ccff = "%X" % cf
-    (s1,s2,s3,s4) = mulprocset1( cc, ccff, pool )
+    ( s1, s2, s3, s4 ) = mulprocset1( cc, ccff, pool )
     print s1
     print "2. Second set of eqns"
     print eqnf1( cc, ccff, s1, s2, s3 , s4, pool )
