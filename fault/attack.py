@@ -9,6 +9,7 @@ from struct import pack
 from struct import unpack
 from pprint import pprint
 import multiprocessing
+from sys import stdout
 
 # a = []
 # for i in range(0, 32, 2):
@@ -27,6 +28,15 @@ f           = 1
 p           = 0
 #  *i*, *j* specify the row and column of the state matrix which fault occurs
 i, j        = 0, 0
+
+# define messages to test the key
+testMessages = [
+  'a7be1a6997ad739bd8c9ca451f618b61',
+  '36339d50f9b539269f2c092dc4406d23',
+  '7ad5fda789ef4e272bca100b3d9ff59f',
+  'a761ca9b97be8b45d8ad1a611fc97369',
+  'bdb52189f261b63d0b107c9e8b6e776e'
+  ]
 
 # key testing rounds
 testTrials  = 5
@@ -213,22 +223,40 @@ def invKey_( s, Rc ) :
   s[1 ] = s[1 ] ^ SubBytes( s[14] )
   s[0 ] = s[0 ] ^ SubBytes( s[13] ) ^ Rc
 
+# split string into pair list
+def splitPairs( x ) :
+  y = []
+  for i in range(0, len(x), 2) :
+    y.append( int( x[i : i+2], 16 ) )
+  return y
+
+# get back xFF
+def getHex( x ) :
+  y = []
+  for i in x :
+    y.append( ( hex( i )[2:] ).zfill( 2 ) )
+  return "".join(y)
+
 # test solution
 def testSol( key ) :
-  for t in range( testTrials ) :
+  newKey = recKey( [key] )[0]
+  print "\nTrying: ", newKey
+  # for t in range( testTrials ) :
+  for message in testMessages :
     # Generate message
-    rbs = random.getrandbits( keySize )
-    while (rbs >= long(key, 16)) :
-      rbs = random.getrandbits( keySize )
-    message =  "%X" % rbs
-    message = message.zfill( inputOctets )
+    # rbs = random.getrandbits( keySize )
+    # while (rbs >= long(key, 16)) :
+      # rbs = random.getrandbits( keySize )
+    # message =  "%X" % rbs
+    # message = message.zfill( inputOctets )
 
     # Encrypt with the device
-    ( trace, cipher ) = interact( long( message, 16 ), None )
+    cipher = "%X" % interact( long( message, 16 ), '' )
+    cipher = cipher.zfill( 32 )
 
     # transform message, encryption and key to list format
     m = splitPairs( message )
-    k = splitPairs( key )
+    k = splitPairs( newKey )
     c = splitPairs( cipher )
 
     k = pack( 16 * "B", *k )
@@ -239,19 +267,17 @@ def testSol( key ) :
 
     tt = long(cipher, 16)
     cc = long( getHex( unpack( 16 * "B", t ) ), 16 )
-    print tt
-    print cc
-    print c
-    print t
+    # print tt
+    # print cc
+    # print c
+    # print t
 
     if( t == c or tt == cc ) :
       print "Key recovered correctly!"
-      return 0
-    else :
-      print "Trial ", t
+      return 1
 
-  print "Key recovery failed, trying again!" 
-  return 1
+  print "Key does not match!" 
+  return 0
 
 # interact with real device
 def interact( G, S ) :
@@ -440,7 +466,7 @@ def eqn3( x, xp, sol ) :
   for fi in range( 1, 256 ) :
     k3  = []
     k6  = []
-    k9 = []
+    k9  = []
     k16 = []
 
     for k in range( 256 ) :
@@ -512,6 +538,8 @@ def eqn4( x, xp, sol ) :
 
 # further reduction
 def eqnf1( x, xp, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13, pool ) :
+  whole = 2**32
+  solutionsTested = 0
   xx = (
     int( byte( x, 1  ), 16 ),
     int( byte( x, 2  ), 16 ),
@@ -558,7 +586,7 @@ def eqnf1( x, xp, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13, pool ) 
         ( fi, i3, i6, i9, i16 ) = iii 
         for iiii in tpl4_7_10_13 :
           ( fi, i4, i7, i10, i13 ) = iiii
-          print "Bang!"
+          # print "Bang!"
           for j1 in i1 :
             for j2 in i2 :
               for j3 in i3 :
@@ -579,13 +607,25 @@ def eqnf1( x, xp, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13, pool ) 
                                           # pr = eqnf2( (xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ))
                                           # if pr != -1 :
                                             # sol.append( pr )
-        print "MPU"
-        for data in pool.map( eqnf2, inputs ) :
-          if data != -1 :
-            sol.append( data )
-        inputs = []
-        print "Sol len: ", len(sol)
-  return sol
+        # print "MPU"
+          for data in pool.map( eqnf2, inputs ) :
+            if data != -1 :
+              sol.append( data )
+              found = testSol( data )
+              if found :
+                return recKey( [data] )[0]
+          solutionsTested += len(inputs)
+          inputs = []
+          # print "Solutions tested: ", solutionsTested, " , out of probably: ", whole
+          # print "Left: ", whole - solutionsTested
+          txt1 = str(int(((solutionsTested)/(whole*1.0))*10000)/100.0)+" %"
+          txt2 = "Solutions found: " + str(len(sol))
+          stdout.write("\r"+txt1+"    "+txt2)
+          stdout.flush()
+          # print str(int(((solutionsTested)/(whole*1.0))*10000)/100.0)+"%"
+  stdout.write("\n") # move the cursor to the next line
+  print sol
+  return -1
 
 def eqnf2N( coef, x, k1, k2, k3, k4, h ) :
   p1 = add( x, k1 )
@@ -712,46 +752,36 @@ pprint( mulTab)
 print "Done"
 
 if ( __name__ == "__main__" ) :
-  # is the guess correct?
-  incorrect = 1
-
   # define multi-processing
   num_of_workers = multiprocessing.cpu_count()
   pool = multiprocessing.Pool(num_of_workers)
 
-  while( incorrect ) :
-    # generate 128-bit strings for attacks
-    rb = random.getrandbits( keySize )
-    print "Attacks Generated.\nStarting interaction."
+  # generate 128-bit strings for attacks
+  rb = random.getrandbits( keySize )
+  print "Attacks Generated.\nStarting interaction."
 
-    # Produce a sub-process representing the attack target.
-    target = subprocess.Popen( args   = sys.argv[ 1 ],
-                               stdout = subprocess.PIPE, 
-                               stdin  = subprocess.PIPE )
+  # Produce a sub-process representing the attack target.
+  target = subprocess.Popen( args   = sys.argv[ 1 ],
+                             stdout = subprocess.PIPE, 
+                             stdin  = subprocess.PIPE )
 
-    # Construct handles to attack target standard input and output.
-    target_out = target.stdout
-    target_in  = target.stdin
+  # Construct handles to attack target standard input and output.
+  target_out = target.stdout
+  target_in  = target.stdin
 
-    # Get traces---take first 5%
-    #  find the limit
-    specifier = str(r) + ',' + str(f) + ',' + str(p) + ',' + str(i) + ',' + str(j)
-    c = interact( rb, specifier )
-    cf = interact( rb, '' )
+  # Get traces---take first 5%
+  #  find the limit
+  specifier = str(r) + ',' + str(f) + ',' + str(p) + ',' + str(i) + ',' + str(j)
+  c = interact( rb, specifier )
+  cf = interact( rb, '' )
 
-    print "Recovering the key..."
-    # perform first S-box
-    print "1. First set of eqns"
-    cc = "%X" % c
-    ccff = "%X" % cf
-    ( s1, s2, s3, s4 ) = mulprocset1( cc, ccff, pool )
-    # print s1
-    print "2. Second set of eqns"
-    Sol = eqnf1( cc, ccff, s1, s2, s3 , s4, pool )
-    print Sol
-    exit()
-    # Test solution, if not working redo
-    incorrect = testSol( key )
-
-
-print "Key: ", key
+  print "Recovering the key..."
+  # perform first S-box
+  print "1. First set of eqns"
+  cc = "%X" % c
+  ccff = "%X" % cf
+  ( s1, s2, s3, s4 ) = mulprocset1( cc, ccff, pool )
+  # print s1
+  print "2. Second set of eqns"
+  key = eqnf1( cc, ccff, s1, s2, s3 , s4, pool )
+  print "Key: ", key
