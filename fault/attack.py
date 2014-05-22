@@ -1,8 +1,8 @@
 #! /usr/bin/python
 import sys, subprocess, random
-from numpy import mean
 from numpy import zeros
 from numpy import matrix
+from numpy import int32
 from numpy import where
 import struct, Crypto.Cipher.AES as AES
 from struct import pack
@@ -10,29 +10,30 @@ from struct import unpack
 from pprint import pprint
 import multiprocessing
 
-a = []
-for i in range(0, 32, 2):
-  x = "13111d7fe3944a17f307a78b4d2b30c5"[i: i+2]
-  print "lo: ", x
-  print int(x, 16)
-  a.append( int(x, 16) )
+# a = []
+# for i in range(0, 32, 2):
+#   x = "13111d7fe3944a17f307a78b4d2b30c5"[i: i+2]
+#   print "lo: ", x
+#   print int(x, 16)
+#   a.append( int(x, 16) )
 
 
 # CONSTANTS
 #  *r* (represented as a decimal integer string) - round in which fault occurs
-r          = 8
+r           = 8
 #  *f* specifies the round function in which the fault occurs
-f          = 1
+f           = 1
 #  *p* specifies whether the fault occurs before or after execution
-p          = 0
+p           = 0
 #  *i*, *j* specify the row and column of the state matrix which fault occurs
-i, j       = 0, 0
+i, j        = 0, 0
 
 # key testing rounds
-testTrials = 5
+testTrials  = 5
 
 # key size
-keySize = 128
+keySize     = 128
+inputOctets = 32
 
 # Rijndael S-box
 # taken from: http://anh.cs.luc.edu/331/code/aes.py
@@ -191,7 +192,6 @@ def tplToList( tpl ) :
 # revert key
 def invKey( s ) :
   lo = tplToList( s )
-  print lo
   for i in reversed(range( 1, 11 )) :
     invKey_( lo, Rcon[i] )
   return lo
@@ -212,33 +212,6 @@ def invKey_( s, Rc ) :
   s[2 ] = s[2 ] ^ SubBytes( s[15] )
   s[1 ] = s[1 ] ^ SubBytes( s[14] )
   s[0 ] = s[0 ] ^ SubBytes( s[13] ) ^ Rc
-
-
-# void aes_enc_keyexp_step_inv( uint8_t* k, const uint8_t* r, uint8_t rc ) 
-# {
-#   k[ 15 ] = r[ 15 ] ^ r[ 11 ];
-#   k[ 14 ] = r[ 14 ] ^ r[ 10 ];
-#   k[ 13 ] = r[ 13 ] ^ r[ 9 ];
-#   k[ 12 ] = r[ 12 ] ^ r[ 8 ];
-#   k[ 11 ] = r[ 11 ] ^ r[ 7 ];
-#   k[ 10 ] = r[ 10 ] ^ r[ 6 ];
-#   k[ 9 ] =  r[ 9 ]  ^ r[ 5 ];
-#   k[ 8 ] =  r[ 8 ]  ^ r[ 4 ];
-#   k[ 7 ] =  r[ 7 ]  ^ r[ 3 ];
-#   k[ 6 ] =  r[ 6 ]  ^ r[ 2 ];
-#   k[ 5 ] =  r[ 5 ]  ^ r[ 1 ];
-#   k[ 4 ] =  r[ 4 ]  ^ r[ 0 ];
-#   k[ 3 ] =  r[ 3 ]  ^ S[k[ 12 ]];
-#   k[ 2 ] =  r[ 2 ]  ^ S[k[ 15 ]];
-#   k[ 1 ] =  r[ 1 ]  ^ S[k[ 14 ]];
-#   k[ 0 ] =  r[ 0 ]  ^ S[k[ 13 ]] ^ rc;
-# }
-# void aes_block::aes_key_exp_inv(int start /* = 10 */, int end /* = 1 */)
-# {
-#   // Do key expansion 10 times.. backwards
-#   for(int i = start; i > end; --i)
-#     aes_enc_keyexp_step_inv(this->bytes, this->bytes, Rcon[i]);
-# }
 
 # test solution
 def testSol( key ) :
@@ -282,12 +255,8 @@ def testSol( key ) :
 
 # interact with real device
 def interact( G, S ) :
-  print "%X\n" % ( G )
-  print "%s\n" % ( S )
-
   # Send G to attack target
   target_in.write( "%s\n" % ( S ) ) ; target_in.flush()
-
   # Send G to attack target
   inputmessage = "%X" % ( G )
   inputmessage = inputmessage.zfill( 32 )
@@ -296,21 +265,17 @@ def interact( G, S ) :
 
   # Receive decryption from attack target
   dec = target_out.readline().strip()
-  print "Interact dec"
-  print dec
   return int( dec, 16 )
 
 # define SUbbytes function---Section 5.1.1
 #  http://csrc.nist.gov/publications/fips/fips197/fips-197.pdf
 def SubBytes( x ) :
   return sbox[x]
-  # return SboxLookup[ (x&0xf0)>>4, (x&0x0f) ]
 
 # define SUbbytes function---Section 5.1.1
 #  http://csrc.nist.gov/publications/fips/fips197/fips-197.pdf
 def RSubBytes( x ) :
   return rsbox[x]
-  # return RSboxLookup[ (x&0xf0)>>4, (x&0x0f) ]
 
 # Galois addition/ subtraction of 2 1-byte(8-bit) numbers---F_8 add
 def add( x, y ) :
@@ -374,8 +339,6 @@ def mulprocset1( c, cf, pool ) :
 
 # define set of equations
 def eqn1( x, xp, sol ) :
-  print x
-  print xp
   x1   = int( byte( x,  1  ), 16 )
   xp1  = int( byte( xp, 1  ), 16 )
   x8   = int( byte( x,  8  ), 16 )
@@ -384,7 +347,6 @@ def eqn1( x, xp, sol ) :
   xp11 = int( byte( xp, 11 ), 16 )
   x14  = int( byte( x,  14 ), 16 )
   xp14 = int( byte( xp, 14 ), 16 )
-  print "%X" % x14
 
   sol = []
   # first condition
@@ -395,12 +357,12 @@ def eqn1( x, xp, sol ) :
     k14 = []
 
     for k in range( 256 ) :
-      if mul(2,fi) == add( RSubBytes( add(x1,k) ), RSubBytes( add(xp1,k) ) ) :
+      if mulTab[2,fi] == add( RSubBytes( add(x1,k) ), RSubBytes( add(xp1,k) ) ) :
         k1.append(k)
     if k1 == [] : continue
 
     for k in range( 256 ) :
-      if mul(3,fi) == add( RSubBytes( add(x8,k) ), RSubBytes( add(xp8,k) ) ) :
+      if mulTab[3,fi] == add( RSubBytes( add(x8,k) ), RSubBytes( add(xp8,k) ) ) :
         k8.append(k)
     if k8 == [] : continue
 
@@ -448,16 +410,16 @@ def eqn2( x, xp, sol ) :
     if k5 == [] : continue
 
     for k in range( 256 ) :
-      if mul(2,fi) == add( RSubBytes( add(x12,k) ), RSubBytes( add(xp12,k) ) ) :
+      if mulTab[2,fi] == add( RSubBytes( add(x12,k) ), RSubBytes( add(xp12,k) ) ) :
         k12.append(k)
     if k12 == [] : continue
 
     for k in range( 256 ) :
-      if mul(3,fi) == add( RSubBytes( add(x15,k) ), RSubBytes( add(xp15,k) ) ) :
+      if mulTab[3,fi] == add( RSubBytes( add(x15,k) ), RSubBytes( add(xp15,k) ) ) :
         k15.append(k)
     if k15 == [] : continue
 
-    print fi, k2, k5, k12, k15
+    # print fi, k2, k5, k12, k15
     sol.append( ( fi, k2, k5, k12, k15 ) )
 
   return sol
@@ -482,12 +444,12 @@ def eqn3( x, xp, sol ) :
     k16 = []
 
     for k in range( 256 ) :
-      if mul(2,fi) == add( RSubBytes( add(x3,k) ), RSubBytes( add(xp3,k) ) ) :
+      if mulTab[2,fi] == add( RSubBytes( add(x3,k) ), RSubBytes( add(xp3,k) ) ) :
         k3.append(k)
     if k3 == [] : continue
 
     for k in range( 256 ) :
-      if mul(3,fi) == add( RSubBytes( add(x6,k) ), RSubBytes( add(xp6,k) ) ) :
+      if mulTab[3,fi] == add( RSubBytes( add(x6,k) ), RSubBytes( add(xp6,k) ) ) :
         k6.append(k)
     if k6 == [] : continue
 
@@ -535,12 +497,12 @@ def eqn4( x, xp, sol ) :
     if k7 == [] : continue
 
     for k in range( 256 ) :
-      if mul(2,fi) == add( RSubBytes( add(x10,k) ), RSubBytes( add(xp10,k) ) ) :
+      if mulTab[2,fi] == add( RSubBytes( add(x10,k) ), RSubBytes( add(xp10,k) ) ) :
         k10.append(k)
     if k10 == [] : continue
 
     for k in range( 256 ) :
-      if mul(3,fi) == add( RSubBytes( add(x13,k) ), RSubBytes( add(xp13,k) ) ) :
+      if mulTab[3,fi] == add( RSubBytes( add(x13,k) ), RSubBytes( add(xp13,k) ) ) :
         k13.append(k)
     if k13 == [] : continue
 
@@ -613,16 +575,16 @@ def eqnf1( x, xp, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13, pool ) 
                                     for j14 in i14 :
                                       for j15 in i15 :
                                         for j16 in i16 :
-                                          # inputs.append( ( xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ) )
-                                          pr = eqnf2( (xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ))
-                                          if pr != -1 :
-                                            sol.append( pr )
-        # print "MPU"
-        # for data in pool.map( eqnf2, inputs ) :
-          # if data != -1 :
-            # sol.append( data )
-        # inputs = []
-        # print sol
+                                          inputs.append( ( xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ) )
+                                          # pr = eqnf2( (xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ))
+                                          # if pr != -1 :
+                                            # sol.append( pr )
+        print "MPU"
+        for data in pool.map( eqnf2, inputs ) :
+          if data != -1 :
+            sol.append( data )
+        inputs = []
+        print "Sol len: ", len(sol)
   return sol
 
 def eqnf2N( coef, x, k1, k2, k3, k4, h ) :
@@ -636,7 +598,7 @@ def eqnf2N( coef, x, k1, k2, k3, k4, h ) :
   p3 = add( p3, h )
 
   p = add( p1, p3 )
-  return mul( coef, p )
+  return mulTab[ coef, p ]
 
 def eqnf2O( coef, x, k1, k2, k3, k4 ) :
   p1 = add( x, k1 )
@@ -648,14 +610,14 @@ def eqnf2O( coef, x, k1, k2, k3, k4 ) :
   p3 = add( k2, p2 )
 
   p = add( p1, p3 )
-  return mul( coef, p )
+  return mulTab[ coef, p ]
 
 def eqnf2P( coef, x, k1, k2, k3 ) :
   p1 = add( k2, k3 )
   p2 = add( x, k1 )
   p2 = RSubBytes( p2 )
   p = add( p1, p2 )
-  return mul( coef, p )
+  return mulTab[ coef, p ]
 def eqnf2Q( ab, c, d, ef, g, h ) :
   abc = add( ab, c )
   abcd = add( abc, d )
@@ -699,7 +661,7 @@ def eqnf2( lot ) :
   h  = eqnf2P( 13, xxp[3 ], j4, j16 , j12 )
   p1_  = eqnf2Q( ab, c, d, ef, g, h )
 
-  if mul(3,p2) != mul(6,p1_) : return -1
+  if mulTab[3,p2] != mulTab[6,p1_] : return -1
 
   # eqn 3
   a  = eqnf2P( 13, xx[8 ], j9 , j9 , j5 )
@@ -714,7 +676,7 @@ def eqnf2( lot ) :
   h  = eqnf2P( 11, xxp[15], j16, j12 , j8 )
   p1__ = eqnf2Q( ab, c, d, ef, g, h )
 
-  if mul(6,p1_) != mul(6,p1__) : return -1
+  if mulTab[6,p1_] != mulTab[6,p1__] : return -1
 
   # eqn 4
   a  = eqnf2P( 11, xx[4 ], j5 , j5 , j1 )
@@ -731,11 +693,23 @@ def eqnf2( lot ) :
 
 # przelec przez f
 
-  if mul(3,p2) == mul(6,p1_) == mul(6,p1__) == mul(2,p3) :
+  if mulTab[3,p2] == mulTab[6,p1_] == mulTab[6,p1__] == mulTab[2,p3] :
     return ( j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 )
   else :
     return -1
 
+# pre-compute multiplication table
+print "Calculating multiplication table"
+# Space allocation for multiplication table
+mulTab = zeros( [256, 256], dtype=int32 )
+# function to pre-compute multiplication table
+# def mulTabPrecompute( lmulTab ) :
+for ii in range( 256 ) :
+  for jj in range( 256 ) :
+    mulTab[ii][jj] = mul( ii, jj )
+# mulTabPrecompute( mulTab )
+pprint( mulTab)
+print "Done"
 
 if ( __name__ == "__main__" ) :
   # is the guess correct?
@@ -764,8 +738,6 @@ if ( __name__ == "__main__" ) :
     specifier = str(r) + ',' + str(f) + ',' + str(p) + ',' + str(i) + ',' + str(j)
     c = interact( rb, specifier )
     cf = interact( rb, '' )
-    print "%X" % c 
-    print "%X" % cf 
 
     print "Recovering the key..."
     # perform first S-box
@@ -773,13 +745,11 @@ if ( __name__ == "__main__" ) :
     cc = "%X" % c
     ccff = "%X" % cf
     ( s1, s2, s3, s4 ) = mulprocset1( cc, ccff, pool )
-    print s1
+    # print s1
     print "2. Second set of eqns"
-    print eqnf1( cc, ccff, s1, s2, s3 , s4, pool )
+    Sol = eqnf1( cc, ccff, s1, s2, s3 , s4, pool )
+    print Sol
     exit()
-    #
-    # Ri = corParChunk( Hi, traces, pool ) # parallel chunk by chunk 2:02
-
     # Test solution, if not working redo
     incorrect = testSol( key )
 
