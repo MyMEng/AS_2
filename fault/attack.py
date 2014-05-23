@@ -243,12 +243,6 @@ def testSol( key ) :
   print "\nTrying: ", newKey
   # for t in range( testTrials ) :
   for message in testMessages :
-    # Generate message
-    # rbs = random.getrandbits( keySize )
-    # while (rbs >= long(key, 16)) :
-      # rbs = random.getrandbits( keySize )
-    # message =  "%X" % rbs
-    # message = message.zfill( inputOctets )
 
     # Encrypt with the device
     cipher = "%X" % interact( long( message, 16 ), '' )
@@ -267,10 +261,6 @@ def testSol( key ) :
 
     tt = long(cipher, 16)
     cc = long( getHex( unpack( 16 * "B", t ) ), 16 )
-    # print tt
-    # print cc
-    # print c
-    # print t
 
     if( t == c or tt == cc ) :
       print "Key recovered correctly!"
@@ -394,7 +384,6 @@ def eqn1( x, xp, sol ) :
         for c in k11 :
           for d in k14 :
             sol.append( (a,b,c,d) )
-    # sol.append( ( fi, k1, k8, k11, k14 ) )
 
   return sol
 
@@ -437,15 +426,11 @@ def eqn2( x, xp, sol ) :
         k15.append(k)
     if k15 == [] : continue
 
-    # print fi, k2, k5, k12, k15
-
     for a in k2 :
       for b in k5 :
         for c in k12 :
           for d in k15 :
             sol.append( (a,b,c,d) )
-
-    # sol.append( ( fi, k2, k5, k12, k15 ) )
 
   return sol
 
@@ -494,8 +479,6 @@ def eqn3( x, xp, sol ) :
           for d in k16 :
             sol.append( (a,b,c,d) )
 
-    # sol.append( ( fi, k3, k6, k9, k16 ) )
-
   return sol
 
 # define set of equations no. 4
@@ -542,8 +525,6 @@ def eqn4( x, xp, sol ) :
         for c in k10 :
           for d in k13 :
             sol.append( (a,b,c,d) )
-
-    # sol.append( ( fi, k4, k7, k10, k13 ) )
 
   return sol
 
@@ -609,9 +590,7 @@ def eqnf1( x, xp, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13, pool ) 
             return recKey( [data] )[0]
       solutionsTested += len(inputs)
       inputs = []
-      txt1 = str(int(((solutionsTested)/(whole*1.0))*10000)/100.0)+"    %"
-      txt2 = "Solutions found: " + str(len(sol))
-      stdout.write("\r"+txt1+"    "+txt2)
+      stdout.write("\r" + "%.2f" + "    " + "Solutions found: %d        " ) % ( (int(((solutionsTested)/(whole*1.0))*10000)/100.0), len(sol) )
       stdout.flush()
   stdout.write("\n") # move the cursor to the next line
   print sol
@@ -678,52 +657,78 @@ def eqnf2( lot ) :
   efgh = add( efg, h )
   part2 = RSubBytes( efgh )
   p2   = add( part1, part2 )
+
+
   # eqn 2
   a  = eqnf2P( 9, xx[12], j13 , j13, j9 )
   b  = eqnf2P( 14, xx[9 ], j10 , j10, j14 )
-  ab = RSubBytes( add( a, b ) )
   c  = eqnf2P( 11, xx[6 ], j7 , j15, j11 )
   d  = eqnf2P( 13, xx[3], j4, j16, j12 )
+  ab = add( a, b )
+  abc = add( ab, c )
+  abcd = add( abc, d )
+  part1 = RSubBytes( abcd )
   e  = eqnf2P( 9, xxp[12], j13, j13, j9 )
   f  = eqnf2P( 14, xxp[9 ], j10 , j10, j14 )
-  ef = RSubBytes( add( e, f ) )
   g  = eqnf2P( 11, xxp[6 ], j7, j15, j11 )
   h  = eqnf2P( 13, xxp[3 ], j4, j16 , j12 )
-  p1_  = eqnf2Q( ab, c, d, ef, g, h )
+  ef = add( e, f )
+  efg = add( ef, g )
+  efgh = add( efg, h )
+  part2 = RSubBytes( efgh )
+  p1_  = add( part1, part2 )
 
   if mulTab[3,p2] != mulTab[6,p1_] : return -1
 
   # eqn 3
   a  = eqnf2P( 13, xx[8 ], j9 , j9 , j5 )
   b  = eqnf2P( 9 , xx[5 ], j6 , j10, j6 )
-  ab = RSubBytes( add( a, b ) )
   c  = eqnf2P( 14, xx[2 ], j3 , j11, j7 )
   d  = eqnf2P( 11, xx[15], j16, j12, j8 )
+  ab = add( a, b )
+  abc = add( ab, c )
+  abcd = add( abc, d )
+  part1 = RSubBytes( abcd )
   e  = eqnf2P( 13, xxp[8 ], j9, j9, j5 )
   f  = eqnf2P( 9 , xxp[5 ], j6 , j10, j6 )
-  ef = RSubBytes( add( e, f ) )
   g  = eqnf2P( 14, xxp[2 ], j3, j11, j7 )
   h  = eqnf2P( 11, xxp[15], j16, j12 , j8 )
-  p1__ = eqnf2Q( ab, c, d, ef, g, h )
+  ef = add( e, f )
+  efg = add( ef, g )
+  efgh = add( efg, h )
+  part2 = RSubBytes( efgh )
+  p1__ = add( part1, part2 )
 
   if mulTab[6,p1_] != mulTab[6,p1__] : return -1
 
   # eqn 4
   a  = eqnf2P( 11, xx[4 ], j5 , j5 , j1 )
   b  = eqnf2P( 13, xx[1 ], j2 , j6 , j2 )
-  ab = RSubBytes( add( a, b ) )
   c  = eqnf2P( 9 , xx[14], j15, j7 , j3 )
   d  = eqnf2P( 14, xx[11], j12, j8 , j4 )
+  ab = add( a, b )
+  abc = add( ab, c )
+  abcd = add( abc, d )
+  part1 = RSubBytes( abcd )
   e  = eqnf2P( 11, xxp[4], j5, j5, j1 )
   f  = eqnf2P( 13, xxp[1 ], j2 , j6 , j2 )
-  ef = RSubBytes( add( e, f ) )
   g  = eqnf2P( 9 , xxp[14], j15, j7 , j3 )
   h  = eqnf2P( 14, xxp[11], j12, j8 , j4 )
-  p3 = eqnf2Q( ab, c, d, ef, g, h )
+  ef = add( e, f )
+  efg = add( ef, g )
+  efgh = add( efg, h )
+  part2 = RSubBytes( efgh )
+  p3 = add( part1, part2 )
 
-# przelec przez f
+
+  for ff in range( 255 ) :
+      i2 = mulTab[ ff, 2 ]
+      i3 = mulTab[ ff, 3 ]
+      if i2 == p2 and ff == p1_ and ff == p1__ and i3==p3 :
+          print "\nHoray1!"
 
   if mulTab[3,p2] == mulTab[6,p1_] == mulTab[6,p1__] == mulTab[2,p3] :
+    print "Horay2!"
     return ( j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 )
   else :
     return -1
@@ -763,16 +768,38 @@ if ( __name__ == "__main__" ) :
   #  find the limit
   specifier = str(r) + ',' + str(f) + ',' + str(p) + ',' + str(i) + ',' + str(j)
   c = interact( rb, specifier )
+  ccheck = interact( rb, specifier )
   cf = interact( rb, '' )
 
   print "Recovering the key..."
   # perform first S-box
   print "1. First set of eqns"
   cc   = "%X" % c
+  cccheck = "%X" % ccheck
   ccff = "%X" % cf
 
-  ( s1, s2, s3, s4 ) = mulprocset1( cc, ccff )
+  (  s1,  s2,  s3,  s4 ) = mulprocset1( cc, ccff )
+  ( ss1, ss2, ss3, ss4 ) = mulprocset1( cccheck, ccff )
 
+  # quick key recovery
+  for a in s1 :
+    if a in ss1 :
+      (g1, g8, g11, g14) = a
+      break
+  for a in s2 :
+    if a in ss2 :
+      (g2, g5, g12, g15) = a
+      break
+  for a in s3 :
+    if a in ss3 :
+      (g3, g6, g9, g16) = a
+      break
+  for a in s4 :
+    if a in ss4 :
+      (g4, g7, g10, g13) = a
+      break
+  ki = recKey( [ ( g1, g2, g3, g4, g5, g6, g7, g8, g9, g10, g11, g12, g13, g14, g15, g16 ) ] )
+  print "Key recovery 1: ", ki[0], "\n"
 
   print "2. Second set of eqns"
   key = eqnf1( cc, ccff, s1, s2, s3 , s4, pool )
