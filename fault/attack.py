@@ -342,25 +342,12 @@ def byte( strin, byte ) :
 
 
 # multi process first set
-def mulprocset1( c, cf, pool ) :
+def mulprocset1( c, cf ) :
   sol1, sol2, sol3, sol4 = [], [], [], []
-  # proc1 = multiprocessing.Process( target = eqn1, args=(c,cf,sol1,) )
-  # proc2 = multiprocessing.Process( target = eqn2, args=(c,cf,sol2,) )
-  # proc3 = multiprocessing.Process( target = eqn3, args=(c,cf,sol3,) )
-  # proc4 = multiprocessing.Process( target = eqn4, args=(c,cf,sol4,) )
-  # proc1.start()
-  # proc2.start()
-  # proc3.start()
-  # proc4.start()
-  # proc1.join()
-  # proc2.join()
-  # proc3.join()
-  # proc4.join()
   s1 = eqn1(c,cf,sol1)
   s2 = eqn2(c,cf,sol2)
   s3 = eqn3(c,cf,sol3)
   s4 = eqn4(c,cf,sol4)
-  # return ( sol1, sol2, sol3, sol4 )
   return ( s1, s2, s3, s4 )
 
 # define set of equations
@@ -402,7 +389,12 @@ def eqn1( x, xp, sol ) :
         k14.append(k)
     if k14 == [] : continue
 
-    sol.append( ( fi, k1, k8, k11, k14 ) )
+    for a in k1 :
+      for b in k8 :
+        for c in k11 :
+          for d in k14 :
+            sol.append( (a,b,c,d) )
+    # sol.append( ( fi, k1, k8, k11, k14 ) )
 
   return sol
 
@@ -446,7 +438,14 @@ def eqn2( x, xp, sol ) :
     if k15 == [] : continue
 
     # print fi, k2, k5, k12, k15
-    sol.append( ( fi, k2, k5, k12, k15 ) )
+
+    for a in k2 :
+      for b in k5 :
+        for c in k12 :
+          for d in k15 :
+            sol.append( (a,b,c,d) )
+
+    # sol.append( ( fi, k2, k5, k12, k15 ) )
 
   return sol
 
@@ -489,7 +488,13 @@ def eqn3( x, xp, sol ) :
         k16.append(k)
     if k16 == [] : continue
 
-    sol.append( ( fi, k3, k6, k9, k16 ) )
+    for a in k3 :
+      for b in k6 :
+        for c in k9 :
+          for d in k16 :
+            sol.append( (a,b,c,d) )
+
+    # sol.append( ( fi, k3, k6, k9, k16 ) )
 
   return sol
 
@@ -532,13 +537,19 @@ def eqn4( x, xp, sol ) :
         k13.append(k)
     if k13 == [] : continue
 
-    sol.append( ( fi, k4, k7, k10, k13 ) )
+    for a in k4 :
+      for b in k7 :
+        for c in k10 :
+          for d in k13 :
+            sol.append( (a,b,c,d) )
+
+    # sol.append( ( fi, k4, k7, k10, k13 ) )
 
   return sol
 
 # further reduction
 def eqnf1( x, xp, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13, pool ) :
-  whole = 2**32
+  whole = len(tpl4_7_10_13) * len(tpl3_6_9_16) * len(tpl2_5_12_15) * len(tpl1_8_11_14)
   solutionsTested = 0
   xx = (
     int( byte( x, 1  ), 16 ),
@@ -579,50 +590,29 @@ def eqnf1( x, xp, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13, pool ) 
   sol = []
   inputs = []
   for i in tpl1_8_11_14 :
-    ( fi, i1, i8, i11, i14 ) = i
+    ( i1, i8, i11, i14 ) = i
     for ii in tpl2_5_12_15 :
-      ( fi, i2, i5, i12, i15 ) = ii
+      ( i2, i5, i12, i15 ) = ii
       for iii in tpl3_6_9_16 :
-        ( fi, i3, i6, i9, i16 ) = iii 
+        ( i3, i6, i9, i16 ) = iii 
         for iiii in tpl4_7_10_13 :
-          ( fi, i4, i7, i10, i13 ) = iiii
-          # print "Bang!"
-          for j1 in i1 :
-            for j2 in i2 :
-              for j3 in i3 :
-                for j4 in i4 :
-                  for j5 in i5 :
-                    for j6 in i6 :
-                      for j7 in i7 :
-                        for j8 in i8 :
-                          for j9 in i9 :
-                            for j10 in i10 :
-                              for j11 in i11 :
-                                for j12 in i12 :
-                                  for j13 in i13 :
-                                    for j14 in i14 :
-                                      for j15 in i15 :
-                                        for j16 in i16 :
-                                          inputs.append( ( xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ) )
-                                          # pr = eqnf2( (xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ))
-                                          # if pr != -1 :
-                                            # sol.append( pr )
-        # print "MPU"
-          for data in pool.map( eqnf2, inputs ) :
-            if data != -1 :
-              sol.append( data )
-              found = testSol( data )
-              if found :
-                return recKey( [data] )[0]
-          solutionsTested += len(inputs)
-          inputs = []
-          # print "Solutions tested: ", solutionsTested, " , out of probably: ", whole
-          # print "Left: ", whole - solutionsTested
-          txt1 = str(int(((solutionsTested)/(whole*1.0))*10000)/100.0)+" %"
-          txt2 = "Solutions found: " + str(len(sol))
-          stdout.write("\r"+txt1+"    "+txt2)
-          stdout.flush()
-          # print str(int(((solutionsTested)/(whole*1.0))*10000)/100.0)+"%"
+          ( i4, i7, i10, i13 ) = iiii
+          inputs.append( ( xx, xxp, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14, i15, i16 ) )
+          # pr = eqnf2( (xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ))
+          # if pr != -1 :
+            # sol.append( pr )
+      for data in pool.map( eqnf2, inputs ) :
+        if data != -1 :
+          sol.append( data )
+          found = testSol( data )
+          if found :
+            return recKey( [data] )[0]
+      solutionsTested += len(inputs)
+      inputs = []
+      txt1 = str(int(((solutionsTested)/(whole*1.0))*10000)/100.0)+"    %"
+      txt2 = "Solutions found: " + str(len(sol))
+      stdout.write("\r"+txt1+"    "+txt2)
+      stdout.flush()
   stdout.write("\n") # move the cursor to the next line
   print sol
   return -1
@@ -757,7 +747,7 @@ if ( __name__ == "__main__" ) :
   pool = multiprocessing.Pool(num_of_workers)
 
   # generate 128-bit strings for attacks
-  rb = random.getrandbits( keySize )
+  rb  = random.getrandbits( keySize )
   print "Attacks Generated.\nStarting interaction."
 
   # Produce a sub-process representing the attack target.
@@ -778,10 +768,12 @@ if ( __name__ == "__main__" ) :
   print "Recovering the key..."
   # perform first S-box
   print "1. First set of eqns"
-  cc = "%X" % c
+  cc   = "%X" % c
   ccff = "%X" % cf
-  ( s1, s2, s3, s4 ) = mulprocset1( cc, ccff, pool )
-  # print s1
+
+  ( s1, s2, s3, s4 ) = mulprocset1( cc, ccff )
+
+
   print "2. Second set of eqns"
   key = eqnf1( cc, ccff, s1, s2, s3 , s4, pool )
   print "Key: ", key
