@@ -3,7 +3,7 @@ import sys, subprocess, random
 from numpy import mean
 from numpy import zeros
 from numpy import matrix
-from numpy import corrcoef # from scipy.stats.stats import pearsonr
+from numpy import corrcoef
 from numpy import where
 import struct, Crypto.Cipher.AES as AES
 from struct import pack
@@ -31,12 +31,20 @@ chunkSizeInc  = 50
 # chunks to process
 first, last   = 0, 256
 
+testMessages = [
+  'a7be1a6997ad739bd8c9ca451f618b61',
+  '36339d50f9b539269f2c092dc4406d23',
+  '7ad5fda789ef4e272bca100b3d9ff59f',
+  'a761ca9b97be8b45d8ad1a611fc97369',
+  'bdb52189f261b63d0b107c9e8b6e776e'
+  ]
+
 # define parameters for trace extraction
 # create sampling vector to select trace entries
 sampleSize    = 0.05    # 5%
 sampleSizeInc = 0.05
 samplingType  = 'first' # take first __%
-# "{0:b}".format( key )
+
 # test trials
 testTrials    = 5
 
@@ -90,7 +98,9 @@ SboxLookup = matrix([
 def interactR( G, limit ) :
   t = []
   # Send G to attack target
-  target_in.write( "%X\n" % ( G ) ) ; target_in.flush()
+  li = "%X\n" % ( G )
+  li = li.zfill( inputOctets )
+  target_in.write( li ) ; target_in.flush()
   # Send key
   I = long("7C7C7C517C7C7C7C7C7C7C517CE260CC", 16)
   target_in.write( "%X\n" % ( I ) ) ; target_in.flush()
@@ -112,7 +122,9 @@ def interactR( G, limit ) :
 def interact( G, limit ) :
   t = []
   # Send G to attack target
-  target_in.write( "%X\n" % ( G ) ) ; target_in.flush()
+  li = "%X\n" % ( G )
+  li = li.zfill( inputOctets )
+  target_in.write( li ) ; target_in.flush()
   # Receive power trace from attack target
   _traces = target_out.readline().strip()[:limit]
 
@@ -164,10 +176,7 @@ def Sbox( plainTexts, keyHypothesis, byte ) :
 # define SUbbytes function---Section 5.1.1
 #  http://csrc.nist.gov/publications/fips/fips197/fips-197.pdf
 def SubBytes( x ) :
-  hexStr = "%X" % x
-  hexStr = hexStr.zfill( 2 )
-  # print "( " + hexStr[0] + " , " + hexStr[1] + " )"
-  return SboxLookup[ int(hexStr[0], 16), int(hexStr[1], 16) ]
+  return sbox[x]
 
 # Get Hamming weight for the matrix
 def getHamming( Vi ) :
@@ -197,19 +206,12 @@ def getMxCorrelation( Hi, Ti ) :
 
   R = zeros( (Hc, Tc) )
 
-  # for i in range(Hc) :
-  #   for j in range(Tc) :
-  #     # R[i, j] = pearsonr( Hi[:, i], Ti[:, j] )[0]
-  #     R[i, j] = corrcoef( Hi[:, i].T, Ti[:, j].T )[0][1]
-
   chunks = Tc / chunkSize;
   for i in range ( first, last ) :
     for j in range( chunks ) :
       j1 = j * chunkSize
       j2 = (j + 1) * chunkSize
 
-      # tmp =  corrcoef(  Ti[:, j1:j2 ].T,      Hi[:, i     ].T  )[0][1]
-      # R[i, j1:j2] = tmp[chunkSize, 0:chunkSize]
       for jj in range(j1, j2) :
         tmp =  corrcoef(  Ti[:, jj ].T,      Hi[:, i     ].T  )[0][1]
         R[i, jj] = tmp
@@ -244,7 +246,7 @@ def splitPairs( x ) :
     y.append( int( x[i : i+2], 16 ) )
   return y
 
-# get back xFF
+# get back xFF format
 def getHex( x ) :
   y = []
   for i in x :
@@ -253,14 +255,7 @@ def getHex( x ) :
 
 # test solution
 def testSol( key ) :
-  for t in range( testTrials ) :
-    # Generate message
-    rbs = random.getrandbits( keySize )
-    while (rbs >= long(key, 16)) :
-      rbs = random.getrandbits( keySize )
-    message =  "%X" % rbs
-    message = message.zfill( inputOctets )
-
+  for message in testMessages :
     # Encrypt with the device
     ( trace, cipher ) = interact( long( message, 16 ), None )
 
@@ -277,16 +272,12 @@ def testSol( key ) :
 
     tt = long(cipher, 16)
     cc = long( getHex( unpack( 16 * "B", t ) ), 16 )
-    print tt
-    print cc
-    print c
-    print t
 
     if( t == c or tt == cc ) :
       print "Key recovered correctly!"
       return 0
     else :
-      print "Trial ", t
+      print "Next trial."
 
   print "Key recovery failed, trying again!" 
   return 1
@@ -295,7 +286,9 @@ def testSol( key ) :
 def getMxCorrelationParallel( HiTiij ) :
   Hi, Ti, i, j = HiTiij
   return ( i, j, corrcoef( Hi[:, i].T, Ti[:, j].T )[0][1] )
-# par controller
+
+## Parallelized
+# parallel controller
 def corPar( Hi, traces, pool ) :
   ( r , Hc ) = Hi.shape
   ( r , Tc ) = traces.shape
@@ -308,7 +301,6 @@ def corPar( Hi, traces, pool ) :
     ( i, j, cor) = data
     Ri[i, j] = cor
   return Ri
-
 # get traces correlation chunks version with parallelization
 def getMxCorrelationChunksPar( Hitracesij1j2 ) :
   ( Hi, Ti, i, j1, j2 ) = Hitracesij1j2

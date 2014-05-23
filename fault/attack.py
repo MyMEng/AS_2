@@ -762,24 +762,24 @@ if ( __name__ == "__main__" ) :
   num_of_workers = multiprocessing.cpu_count()
   pool = multiprocessing.Pool(num_of_workers)
 
+  # Produce a sub-process representing the attack target.
+  target = subprocess.Popen( args   = sys.argv[ 1 ],
+                             stdout = subprocess.PIPE, 
+                             stdin  = subprocess.PIPE )
+
+  # Construct handles to attack target standard input and output.
+  target_out = target.stdout
+  target_in  = target.stdin
+
+  # generate fault specifier
+  specifier = str(r) + ',' + str(f) + ',' + str(p) + ',' + str(i) + ',' + str(j)
+
   # do until solution found
   while again :
 
     # generate 128-bit strings for attacks
     rb  = random.getrandbits( keySize )
     print "Attacks Generated.\nStarting interaction."
-
-    # Produce a sub-process representing the attack target.
-    target = subprocess.Popen( args   = sys.argv[ 1 ],
-                               stdout = subprocess.PIPE, 
-                               stdin  = subprocess.PIPE )
-
-    # Construct handles to attack target standard input and output.
-    target_out = target.stdout
-    target_in  = target.stdin
-
-    # generate fault specifier
-    specifier = str(r) + ',' + str(f) + ',' + str(p) + ',' + str(i) + ',' + str(j)
 
     # interact with the device
     c = interact( rb, specifier )
