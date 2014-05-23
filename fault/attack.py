@@ -11,13 +11,6 @@ from pprint import pprint
 import multiprocessing
 from sys import stdout
 
-# a = []
-# for i in range(0, 32, 2):
-#   x = "13111d7fe3944a17f307a78b4d2b30c5"[i: i+2]
-#   print "lo: ", x
-#   print int(x, 16)
-#   a.append( int(x, 16) )
-
 
 # CONSTANTS
 #  *r* (represented as a decimal integer string) - round in which fault occurs
@@ -223,14 +216,14 @@ def invKey_( s, Rc ) :
   s[1 ] = s[1 ] ^ SubBytes( s[14] )
   s[0 ] = s[0 ] ^ SubBytes( s[13] ) ^ Rc
 
-# split string into pair list
+# split string into list of pairs
 def splitPairs( x ) :
   y = []
   for i in range(0, len(x), 2) :
     y.append( int( x[i : i+2], 16 ) )
   return y
 
-# get back xFF
+# get back xFF format
 def getHex( x ) :
   y = []
   for i in x :
@@ -331,7 +324,7 @@ def byte( strin, byte ) :
   return strin[bt*2 : bt*2+2]
 
 
-# multi process first set
+# multi process first set of equations---controller
 def mulprocset1( c, cf ) :
   sol1, sol2, sol3, sol4 = [], [], [], []
   s1 = eqn1(c,cf,sol1)
@@ -340,7 +333,7 @@ def mulprocset1( c, cf ) :
   s4 = eqn4(c,cf,sol4)
   return ( s1, s2, s3, s4 )
 
-# define set of equations
+# define set of equations no. 1.1
 def eqn1( x, xp, sol ) :
   x1   = int( byte( x,  1  ), 16 )
   xp1  = int( byte( xp, 1  ), 16 )
@@ -387,7 +380,7 @@ def eqn1( x, xp, sol ) :
 
   return sol
 
-# define set of equations no. 2
+# define set of equations no. 1.2
 def eqn2( x, xp, sol ) :
   x2   = int( byte( x,  2  ), 16 )
   xp2  = int( byte( xp, 2  ), 16 )
@@ -434,7 +427,7 @@ def eqn2( x, xp, sol ) :
 
   return sol
 
-# define set of equations no. 3
+# define set of equations no. 1.3
 def eqn3( x, xp, sol ) :
   x3   = int( byte( x,  3  ), 16 )
   xp3  = int( byte( xp, 3  ), 16 )
@@ -481,7 +474,7 @@ def eqn3( x, xp, sol ) :
 
   return sol
 
-# define set of equations no. 4
+# define set of equations no. 1.4
 def eqn4( x, xp, sol ) :
   x4   = int( byte( x,  4  ), 16 )
   xp4  = int( byte( xp, 4  ), 16 )
@@ -528,7 +521,7 @@ def eqn4( x, xp, sol ) :
 
   return sol
 
-# further reduction
+# further reduction---equation 2 controller
 def eqnf1( x, xp, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13, pool ) :
   whole = len(tpl4_7_10_13) * len(tpl3_6_9_16) * len(tpl2_5_12_15) * len(tpl1_8_11_14)
   solutionsTested = 0
@@ -579,23 +572,24 @@ def eqnf1( x, xp, tpl1_8_11_14, tpl2_5_12_15, tpl3_6_9_16, tpl4_7_10_13, pool ) 
         for iiii in tpl4_7_10_13 :
           ( i4, i7, i10, i13 ) = iiii
           inputs.append( ( xx, xxp, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14, i15, i16 ) )
-          # pr = eqnf2( (xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ))
-          # if pr != -1 :
-            # sol.append( pr )
+
       for data in pool.map( eqnf2, inputs ) :
         if data != -1 :
           sol.append( data )
           found = testSol( data )
           if found :
             return recKey( [data] )[0]
+
       solutionsTested += len(inputs)
       inputs = []
-      stdout.write("\r" + "%.2f" + "    " + "Solutions found: %d        " ) % ( (int(((solutionsTested)/(whole*1.0))*10000)/100.0), len(sol) )
+      stdout.write( ("\r" + "%.2f" + "%%" + "    " + "Solutions found: %d        ") % ( int(((solutionsTested)/(whole*1.0))*10000)/100.0, len(sol) ) )
       stdout.flush()
-  stdout.write("\n") # move the cursor to the next line
-  print sol
+  stdout.write("\n")
+
+  print "Solution not found. Trying again!"
   return -1
 
+# sub equation 2
 def eqnf2N( coef, x, k1, k2, k3, k4, h ) :
   p1 = add( x, k1 )
   p1 = RSubBytes( p1 )
@@ -608,7 +602,7 @@ def eqnf2N( coef, x, k1, k2, k3, k4, h ) :
 
   p = add( p1, p3 )
   return mulTab[ coef, p ]
-
+# sub equation 2
 def eqnf2O( coef, x, k1, k2, k3, k4 ) :
   p1 = add( x, k1 )
   p1 = RSubBytes( p1 )
@@ -620,13 +614,14 @@ def eqnf2O( coef, x, k1, k2, k3, k4 ) :
 
   p = add( p1, p3 )
   return mulTab[ coef, p ]
-
+# sub equation 2
 def eqnf2P( coef, x, k1, k2, k3 ) :
   p1 = add( k2, k3 )
   p2 = add( x, k1 )
   p2 = RSubBytes( p2 )
   p = add( p1, p2 )
   return mulTab[ coef, p ]
+# sub equation 2
 def eqnf2Q( ab, c, d, ef, g, h ) :
   abc = add( ab, c )
   abcd = add( abc, d )
@@ -635,10 +630,10 @@ def eqnf2Q( ab, c, d, ef, g, h ) :
   abcdefgh = add( abcdefg, h )
   return abcdefgh
 
-# eqnf second part
+# equation 2 second part
 def eqnf2( lot ) :
   ( xx, xxp, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 ) = lot
-  # eqn 1
+  # eqn 2.1
   a = eqnf2N( 14, xx[0], j1, j1, j14, j10, Rcon[10] ) # h
   b = eqnf2O( 11, xx[13], j14, j2, j15, j11 )
   c = eqnf2O( 13, xx[10], j11, j3, j16, j12 )
@@ -658,8 +653,7 @@ def eqnf2( lot ) :
   part2 = RSubBytes( efgh )
   p2   = add( part1, part2 )
 
-
-  # eqn 2
+  # eqn 2.2
   a  = eqnf2P( 9, xx[12], j13 , j13, j9 )
   b  = eqnf2P( 14, xx[9 ], j10 , j10, j14 )
   c  = eqnf2P( 11, xx[6 ], j7 , j15, j11 )
@@ -677,10 +671,9 @@ def eqnf2( lot ) :
   efgh = add( efg, h )
   part2 = RSubBytes( efgh )
   p1_  = add( part1, part2 )
-
   if mulTab[3,p2] != mulTab[6,p1_] : return -1
 
-  # eqn 3
+  # eqn 2.3
   a  = eqnf2P( 13, xx[8 ], j9 , j9 , j5 )
   b  = eqnf2P( 9 , xx[5 ], j6 , j10, j6 )
   c  = eqnf2P( 14, xx[2 ], j3 , j11, j7 )
@@ -698,10 +691,9 @@ def eqnf2( lot ) :
   efgh = add( efg, h )
   part2 = RSubBytes( efgh )
   p1__ = add( part1, part2 )
-
   if mulTab[6,p1_] != mulTab[6,p1__] : return -1
 
-  # eqn 4
+  # eqn 2.4
   a  = eqnf2P( 11, xx[4 ], j5 , j5 , j1 )
   b  = eqnf2P( 13, xx[1 ], j2 , j6 , j2 )
   c  = eqnf2P( 9 , xx[14], j15, j7 , j3 )
@@ -720,67 +712,16 @@ def eqnf2( lot ) :
   part2 = RSubBytes( efgh )
   p3 = add( part1, part2 )
 
-
-  for ff in range( 255 ) :
-      i2 = mulTab[ ff, 2 ]
-      i3 = mulTab[ ff, 3 ]
-      if i2 == p2 and ff == p1_ and ff == p1__ and i3==p3 :
-          print "\nHoray1!"
-
   if mulTab[3,p2] == mulTab[6,p1_] == mulTab[6,p1__] == mulTab[2,p3] :
-    print "Horay2!"
     return ( j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15, j16 )
   else :
     return -1
 
-# pre-compute multiplication table
-print "Calculating multiplication table"
-# Space allocation for multiplication table
-mulTab = zeros( [256, 256], dtype=int32 )
-# function to pre-compute multiplication table
-# def mulTabPrecompute( lmulTab ) :
-for ii in range( 256 ) :
-  for jj in range( 256 ) :
-    mulTab[ii][jj] = mul( ii, jj )
-# mulTabPrecompute( mulTab )
-pprint( mulTab)
-print "Done"
-
-if ( __name__ == "__main__" ) :
-  # define multi-processing
-  num_of_workers = multiprocessing.cpu_count()
-  pool = multiprocessing.Pool(num_of_workers)
-
-  # generate 128-bit strings for attacks
-  rb  = random.getrandbits( keySize )
-  print "Attacks Generated.\nStarting interaction."
-
-  # Produce a sub-process representing the attack target.
-  target = subprocess.Popen( args   = sys.argv[ 1 ],
-                             stdout = subprocess.PIPE, 
-                             stdin  = subprocess.PIPE )
-
-  # Construct handles to attack target standard input and output.
-  target_out = target.stdout
-  target_in  = target.stdin
-
-  # Get traces---take first 5%
-  #  find the limit
-  specifier = str(r) + ',' + str(f) + ',' + str(p) + ',' + str(i) + ',' + str(j)
-  c = interact( rb, specifier )
+# key recovery by second interaction
+def recoverSecondInteraction( rb, specifier, ccff, s1, s2, s3, s4 ) :
   ccheck = interact( rb, specifier )
-  cf = interact( rb, '' )
-
-  print "Recovering the key..."
-  # perform first S-box
-  print "1. First set of eqns"
-  cc   = "%X" % c
   cccheck = "%X" % ccheck
-  ccff = "%X" % cf
-
-  (  s1,  s2,  s3,  s4 ) = mulprocset1( cc, ccff )
   ( ss1, ss2, ss3, ss4 ) = mulprocset1( cccheck, ccff )
-
   # quick key recovery
   for a in s1 :
     if a in ss1 :
@@ -798,9 +739,69 @@ if ( __name__ == "__main__" ) :
     if a in ss4 :
       (g4, g7, g10, g13) = a
       break
-  ki = recKey( [ ( g1, g2, g3, g4, g5, g6, g7, g8, g9, g10, g11, g12, g13, g14, g15, g16 ) ] )
-  print "Key recovery 1: ", ki[0], "\n"
+  return recKey( [ ( g1, g2, g3, g4, g5, g6, g7, g8, g9, g10, g11, g12, g13, g14, g15, g16 ) ] )[0]
 
-  print "2. Second set of eqns"
-  key = eqnf1( cc, ccff, s1, s2, s3 , s4, pool )
-  print "Key: ", key
+# pre-compute multiplication table
+print "Calculating multiplication table"
+# Space allocation for multiplication table
+mulTab = zeros( [256, 256], dtype=int32 )
+# function to pre-compute multiplication table
+# def mulTabPrecompute( lmulTab ) :
+for ii in range( 256 ) :
+  for jj in range( 256 ) :
+    mulTab[ii][jj] = mul( ii, jj )
+# mulTabPrecompute( mulTab )
+pprint( mulTab)
+print "Done"
+
+if ( __name__ == "__main__" ) :
+  # loop condition
+  again = 1
+
+  # define multi-processing
+  num_of_workers = multiprocessing.cpu_count()
+  pool = multiprocessing.Pool(num_of_workers)
+
+  # do until solution found
+  while again :
+
+    # generate 128-bit strings for attacks
+    rb  = random.getrandbits( keySize )
+    print "Attacks Generated.\nStarting interaction."
+
+    # Produce a sub-process representing the attack target.
+    target = subprocess.Popen( args   = sys.argv[ 1 ],
+                               stdout = subprocess.PIPE, 
+                               stdin  = subprocess.PIPE )
+
+    # Construct handles to attack target standard input and output.
+    target_out = target.stdout
+    target_in  = target.stdin
+
+    # generate fault specifier
+    specifier = str(r) + ',' + str(f) + ',' + str(p) + ',' + str(i) + ',' + str(j)
+
+    # interact with the device
+    c = interact( rb, specifier )
+    cf = interact( rb, '' )
+
+    print "Recovering the key..."
+    print "1. First set of equations"
+    cc   = "%X" % c
+    ccff = "%X" % cf
+    (  s1,  s2,  s3,  s4 ) = mulprocset1( cc, ccff )
+
+    print "2. Second set of equations"
+    key = eqnf1( cc, ccff, s1, s2, s3 , s4, pool )
+
+    # check whether key found
+    if key == -1 :
+      continue
+    else :
+      again = 0
+
+    print "Key: ", key
+
+    print "\nFaster method with second interaction..."
+    ki = recoverSecondInteraction( rb, specifier, ccff, s1, s2, s3, s4 )
+    print "Key: ", ki
