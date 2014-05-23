@@ -16,7 +16,7 @@
 So that we can calibrate and improve the assignment in the future, give us
 a rough idea how long (in hours) you spent on it *in total*:
 
-effort : [65] hours
+effort : [70] hours
 
 -------------------------------------------------------------------------------
 
@@ -29,6 +29,8 @@ source code or resources you used (if any) so it's clear what's your work
 and what isn't:
 
 [
+AES tables               taken from: http://anh.cs.luc.edu/331/code/aes.py
+Multiplication algorithm taken from: http://en.wikipedia.org/wiki/Finite_field_arithmetic#Multiplication
 ]
 
 -------------------------------------------------------------------------------
@@ -61,13 +63,15 @@ the style or efficiency of a solution.
                 1B7FEAABD5977A61
                 ]
 
-[?] Stage 3 : an attack based on an injected fault
+[X] Stage 3 : an attack based on an injected fault
 
               - Efficiency  of attack strategy                       ( 20%)
               - Robustness  of attack strategy                       ( 20%)
               - Correctness of attack strategy                       ( 60%)
 
-                Attack result : [...]
+                Attack result : [
+                D18862ED924FF94111BF0F0917F35127
+                ]
 
 [X] Stage 4 : an attack based on power consumption
 
@@ -79,7 +83,7 @@ the style or efficiency of a solution.
                 A2718D0D42F504931BB1FFC7287B07F5
                 ]
 
-[?] Stage 5 : analysis                                               (100%)
+[X] Stage 5 : analysis                                               (100%)
 
                                                                      ------
                                                                      (500%)
@@ -93,6 +97,9 @@ might be easy to overlook (e.g., a subtle issue or technique in associated
 source code) should go here:
 
 [
+* Multi processing was used in Python to decrease computation time
+* In fault attack after key recovery using 2 systems of equations quick check is
+  made by producing second faulty cipher-text.
 ]
 
 --------------------------------------------------------------------
